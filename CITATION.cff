@@ -4,9 +4,13 @@ cff-version: "1.2.0"
 title: "mine_dd"
 authors:
   -
-    family-names: Smith
-    given-names: Jane
-    orcid: "https://orcid.org/0000-0000-0000-0000"
+    family-names: Viviani
+    given-names: Eva
+    orcid: "https://orcid.org/0000-0002-1330-0585"
+  -
+    family-names: Ootes
+    given-names: Laura
+    orcid: "https://orcid.org/0000-0002-2800-8309"
 date-released: 20??-MM-DD
 doi: <insert your DOI here>
 version: "0.1.0"
