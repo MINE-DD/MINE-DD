@@ -64,8 +64,7 @@ help you decide which tool to use for packaging.
 
 ## Coding style conventions and code quality
 
-- [Relevant section in the NLeSC guide](https://guide.esciencecenter.nl/#/best_practices/language_guides/python?id=coding-style-conventions) and [README.dev.md](README.dev.md).
-
+- [Relevant section in the NLeSC guide](https://guide.esciencecenter.nl/#/best_practices/language_guides/python?id=coding-style-conventions).
 ## Continuous code quality
 
 [Sonarcloud](https://sonarcloud.io/) is used to perform quality analysis and code coverage report
