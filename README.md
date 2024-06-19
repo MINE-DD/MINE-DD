@@ -3,8 +3,6 @@
 [![RSD](https://img.shields.io/badge/rsd-mine_dd-00a3e3.svg)](https://research-software-directory.org/projects/mine-dd)
 [![fair-software badge](https://img.shields.io/badge/fair--software.eu-%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8B-yellow)](https://fair-software.eu)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=MINE-DD_MINE-DD&metric=coverage)](https://sonarcloud.io/summary/new_code?id=MINE-DD_MINE-DD)
-[![workflow scq badge](https://sonarcloud.io/api/project_badges/measure?project=MINE-DD_mine-dd&metric=alert_status)](https://sonarcloud.io/dashboard?id=MINE-DD_MINE-DD)
-[![workflow scc badge](https://sonarcloud.io/api/project_badges/measure?project=MINE-DD_mine-dd&metric=coverage)](https://sonarcloud.io/dashboard?id=MINE-DD_MINE-DD)
 [![build](https://github.com/MINE-DD/mine-dd/actions/workflows/build.yml/badge.svg)](https://github.com/MINE-DD/mine-dd/actions/workflows/build.yml)
 [![cffconvert](https://github.com/MINE-DD/mine-dd/actions/workflows/cffconvert.yml/badge.svg)](https://github.com/MINE-DD/mine-dd/actions/workflows/cffconvert.yml)
 [![sonarcloud](https://github.com/MINE-DD/mine-dd/actions/workflows/sonarcloud.yml/badge.svg)](https://github.com/MINE-DD/mine-dd/actions/workflows/sonarcloud.yml)
