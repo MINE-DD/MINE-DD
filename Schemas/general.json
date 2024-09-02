@@ -1,0 +1,42 @@
+{
+      "research_type": [
+          {
+              "name": "retrospective study"
+          },
+          {
+              "name": "multi-site, multi-continent study"
+          },
+          {
+              "name": "a large, multi-country study"
+          }
+      ],
+      "research_name": "Global Enteric Multicenter Study (GEMS)",
+      "timeframe": "36 consecutive months from December 2007 to March 2011",
+      "topic": "moderate-to-severe diarrhea (MSD)",
+      "participants": [
+          {
+              "age_group": "Children 0\u201359 months of age",
+              "number": 9439,
+              "study_criteria": [
+                  {
+                      "study_creation": "the diarrhea episode needed to be new",
+                      "description": "onset after at least seven days without diarrhea"
+                  },
+                  {
+                      "study_creation": "the diarrhea episode needed to be acute",
+                      "description": "onset within seven days"
+                  },
+                  {
+                      "study_creation": "the diarrhea episode had to meet at least one clinical criteria for MSD",
+                      "description": "the child presents clinical signs of dehydration, i.e., sunken eyes or loss of skin turgor, assessed by clinician and confirmed by mother, prescription or use of intravenous hydration; dysentery identified by blood in stool; or admission to the hospital for diarrhea or dysentery"
+                  }
+              ],
+              "selection_creteria": [
+                  {
+                      "selection_criterion": "only the first 8\u20139 children in each age strata (0\u201311 months, 12\u201323 months, 24\u201359 months) were recruited each fortnight (14 days) at each site",
+                      "description": null
+                  }
+              ]
+          }
+      ]
+  }
