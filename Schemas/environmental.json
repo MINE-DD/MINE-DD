@@ -1,0 +1,127 @@
+{
+      "variableclasses": [
+          {
+              "name": "Daily historical weather",
+              "comments": "Days with missing rainfall data were assumed to have no rainfall, and days with missing temperature or humidity data were not included when computing average temperature or humidity for the fortnight or month containing them.",
+              "variables": [
+                  {
+                      "name": "temperature",
+                      "description": "",
+                      "unit": "",
+                      "measurement_frequency": "daily",
+                      "measurement_location": "closest weather station with nearly complete data",
+                      "measurement_tod": "",
+                      "measurement_source": "Global Surface Summary of the Day (GSOD)",
+                      "calculation": ""
+                  },
+                  {
+                      "name": "precipitation",
+                      "description": "",
+                      "unit": "",
+                      "measurement_frequency": "daily",
+                      "measurement_location": "closest weather station with nearly complete data",
+                      "measurement_tod": "",
+                      "measurement_source": "Global Surface Summary of the Day (GSOD)",
+                      "calculation": ""
+                  },
+                  {
+                      "name": "dew point",
+                      "description": "",
+                      "unit": "",
+                      "measurement_frequency": "daily",
+                      "measurement_location": "closest weather station with nearly complete data",
+                      "measurement_tod": "",
+                      "measurement_source": "Global Surface Summary of the Day (GSOD)",
+                      "calculation": ""
+                  },
+                  {
+                      "name": "relative humidity",
+                      "description": "Relative humidity was computed using the following empirical relationship, originally defined by Bosen in 1958. T is temperature in Celsius, DP is dewpoint in Celsius, and RH is relative humidity in percentage",
+                      "unit": "percentage",
+                      "measurement_frequency": "",
+                      "measurement_location": "",
+                      "measurement_tod": "",
+                      "measurement_source": "",
+                      "calculation": "RH = 100 x ((112 - (0.1 X T) + DP)/(112 + (0.9 X T)))"
+                  },
+                  {
+                      "name": "Air pressure",
+                      "description": "P is air pressure in kPa",
+                      "unit": "kPa",
+                      "measurement_frequency": "",
+                      "measurement_location": "",
+                      "measurement_tod": "",
+                      "measurement_source": "",
+                      "calculation": "P \\sim 101.3 X e^(-EL/8200)"
+                  },
+                  {
+                      "name": "saturation vapor pressure",
+                      "description": "E_s is saturation vapor pressure in kPA",
+                      "unit": "kPA",
+                      "measurement_frequency": "",
+                      "measurement_location": "",
+                      "measurement_tod": "",
+                      "measurement_source": "",
+                      "calculation": "E_s = 0.622 x e^((17.502 X T)/(T+240.97))"
+                  },
+                  {
+                      "name": "vapor pressure",
+                      "description": "E is the vapor pressure in kPa",
+                      "unit": "kPa",
+                      "measurement_frequency": "",
+                      "measurement_location": "",
+                      "measurement_tod": "",
+                      "measurement_source": "",
+                      "calculation": "E = (0.01 X RH) X E_s"
+                  },
+                  {
+                      "name": "mixing ratio",
+                      "description": "W is the mixing ratio",
+                      "unit": "",
+                      "measurement_frequency": "",
+                      "measurement_location": "",
+                      "measurement_tod": "",
+                      "measurement_source": "",
+                      "calculation": "W = (0.622 X E)/(P - E)"
+                  },
+                  {
+                      "name": "specific humidity",
+                      "description": "SH is the specific humidity in g/kg",
+                      "unit": "g/kg",
+                      "measurement_frequency": "",
+                      "measurement_location": "",
+                      "measurement_tod": "",
+                      "measurement_source": "",
+                      "calculation": "SH = 1000 X W(1 + W)"
+                  }
+              ]
+          },
+          {
+              "name": "seasons",
+              "comments": "We identified three data-driven seasons for each GEMS site using rainfall, temperature, and humidity data",
+              "variables": [
+                  {
+                      "name": "season",
+                      "description": "We identified three data-driven seasons for each GEMS site using rainfall, temperature, and humidity data. Fig 1(C) illustrates the clustering of monthly weather data, collected from the closest weather station in Bangladesh during 2008 to 2011, projected on to the first two principal components. The color of each month indicates the cluster (season) to which the month belongs.  Fig (1D) illustrates how the clustering is reflected temporally during the study time period. This methodology allows for seasons to vary in duration and initiation time and is based on site-specific weather data from the duration of study enrollment (S2 Fig).",
+                      "unit": "",
+                      "measurement_frequency": "month",
+                      "measurement_location": "",
+                      "measurement_tod": "",
+                      "measurement_source": "",
+                      "calculation": "We attached labels to these data-driven seasons to aid in interpretability. The labeling procedure consists of two components: the characteristics arising from clustering the weather data and region-specific characteristics. For example, periods encompassing the times of year with the most rainfall were labeled \u201cMonsoon\u201d in regions that experience monsoons and \u201cRainy\u201d elsewhere. The hottest periods of the year were labeled \u201cSummer\u201d and the coldest peri- ods \u201cWinter\u201d when those terms are used in the region; otherwise, the labels \u201cHot\u201d and \u201cCool\u201d were assigned. season labels are internally consistent within a site (e.g., \u201cSummer\u201d is always hotter than \u201cWinter\u201d at a site), but not across sites (\u201cSummer\u201d at one site might be cooler than \u201cSummer\u201d at another)"
+                  },
+                  {
+                      "name": "average weather conditions",
+                      "description": "S2 Table summarizes average weather conditions for each season at each site. We found that the weather conditions at each site seemed to fall into a few distinct classes, such as \u201cwarm, humid, and rainy\u201d, \u201chot and dry\u201d, and \u201ccool and rainy\u201d, and these classes broadly agree with informally identified site-specific seasons, such as \u201csummer\u201d and \u201cwinter\u201d.",
+                      "unit": "",
+                      "measurement_frequency": "season",
+                      "measurement_location": "each site",
+                      "measurement_tod": "",
+                      "measurement_source": "",
+                      "calculation": ""
+                  }
+              ]
+          }
+      ]
+  }
+  

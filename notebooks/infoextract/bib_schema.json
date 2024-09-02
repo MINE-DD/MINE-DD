@@ -1,0 +1,288 @@
+[
+    {
+        "article_type": "RESEARCH ARTICLE",
+        "study_type": "retrospective study",
+        "study_duration": {
+          "duration": "three years",
+          "details": [
+            "Global Enteric Multicenter Study (GEMS) was conducted for 36 consecutive months from December 2007 to March 2011"
+          ]
+        },
+        "study_focus": "moderate-to-severe diarrhea (MSD)",
+        "study_scope": {
+            "study_sites": [
+                "seven sites of the Global Enteric Multicenter Study (GEMS)",
+                "seven communities in sub-Saharan Africa (Basse, The Gambia; Bamako, Mali; Nyaza Province, Kenya; Manhiça, Mozambique) and South Asia (Karachi [Bin Qasim Town], Pakistan; Kolkata, India; Mirzapur, Bangladesh)"
+            ],
+            "description": [
+                "multi-site, multi-continent study",
+                "a large, multi-country study",
+                "resource limited settings"
+            ],
+            "locations": [
+                "The Gambia",
+                "Mali",
+                "Kenya",
+                "Mozambique",
+                "Pakistan",
+                "India",
+                "Bangladesh"
+            ]
+        },
+        "methodology": [
+            {
+                "name": "Signal Processing Methods",
+                "description": "Traditional methodologies from signal processing used to detect periodicity in time series data.",
+                "methods": [
+                    "Lomb–Scargle periodogram",
+                    "Fast Fourier transforms"
+                ],
+                "goals": ["Estimate the annual, biannual, and other seasonal signals for each pathogen at each site."]
+            },
+            {
+                "name": "Uncertainty Quantification",
+                "description": "Quantification of uncertainty of each estimate to mitigate the impact of intrinsic stochasticity.",
+                "methods": [""],
+                "goals": [""]
+            },
+            {
+                "name": "Machine Learning",
+                "description": "Site-dependent seasons through the use of machine-learning methodologies performed on local weather data.",
+                "methods": [""],
+                "goals": [
+                    "Data-driven seasons",
+                    "Broadly characterize the seasonality"
+                ]
+            },
+            {
+                "name": "Data Usage",
+                "description": "Pathogen prevalence data for each site.",
+                "methods": [""],
+                "goals": [""]
+            }
+        ],
+        "participant_age_group": {
+            "age_range": "children younger than five years of age",
+            "details": [
+                "GEMS enrolled 9,439 out of 14,753 eligible children with MSD during the study period",
+                "Children 0–59 months of age with moderate-to-severe diarrhea (MSD)",
+                "Episode needed to be new (onset after at least seven days without diarrhea), acute (onset within seven days), and had to meet at least one clinical criterion for MSD. Clinical criteria for MSD included the following: the child presents clinical signs of dehydration, i.e., sunken eyes or loss of skin turgor, assessed by clinician and confirmed by mother, prescription or use of intravenous hydration; dysentery identified by blood in stool; or admission to the hospital for diarrhea or dysentery.",
+                "Only the first 8–9 children in each age strata (0–11 months, 12–23 months, 24–59 months) were recruited each fortnight (14 days)"
+            ]
+        },
+        "weather_data": {
+            "time_period": "2008 to 2011",
+            "details": [
+              "monthly weather data collected from the closest weather station in Bangladesh",
+              "Daily historical weather data from weather stations were acquired from the Global Surface Summary of the Day (GSOD)"
+              ],
+            "measurement": [
+              {
+                "measurement_type": "Relative Humidity",
+                "description": "Computed using the following empirical relationship.",
+                "formula": ["RH = 100 * ((112 - (0.1 * T) + DP / (112 + (0.9 * T)))^8"],
+                "variables": [
+                    "Temperature in Celsius",
+                    "Dewpoint in Celsius",
+                    "Relative Humidity"
+                ],
+                "notes": ""
+              },
+              {
+                "measurement_type": "Specific Humidity",
+                "description": "Estimated using the following empirical relationships.",
+                "formula": [
+                    "P = 101.3 * e^(-EL / 8200)",
+                    "Es = 0.622 * e^(17.502 * T) / (T + 240.97)",
+                    "E = (0.01 * RH) * Es",
+                    "E = (0.622 * E) / (P - E)",
+                    "SH = 1000 * W / (1 + W)"
+                ],
+                "variables": [
+                    "Elevation in meters",
+                    "Air pressure in kPa",
+                    "Saturation vapor pressure in kPa",
+                    "Vapor pressure in kPa",
+                    "Relative Humidity",
+                    "Mixing ratio",
+                    "Specific Humidity in g/kg"
+                ],
+                "notes": "Days with missing rainfall data were assumed to have no rainfall, and days with missing temperature or humidity data were not included when computing average temperature or humidity for the fortnight or month containing them."
+              }
+            ]
+        },
+        "data_collection": "monthly weather data collected from the closest weather station in Bangladesh during 2008 to 2011",
+        "title": "The seasonality of diarrheal pathogens: A retrospective study of seven sites over three years",
+        "authors": "Dennis L. ChaoID1*, Anna Roose2, Min RohID1, Karen L. Kotloff2, Joshua L. Proctor1",
+        "affiliation": "Institute for Disease Modeling, Bellevue, Washington, United States of America, 2 Center for Vaccine Development and Global Health, University of Maryland, Baltimore, Maryland, United States of America",
+        "corresponding_author": "dennisc@idmod.org",
+        "doi": "https://doi.org/10.1371/journal.pntd.0007211",
+        "date": "August 15, 2019",
+        "github_repo": "https://github.com/InstituteforDiseaseModeling/SeasonalityStudyOfGEMSdata",
+        "journal": "PLoS Negl Trop Dis",
+        "citation": "Chao DL, Roose A, Roh M, Kotloff KL, Proctor JL (2019)"
+    },
+    {
+        "article_type": "Articles",
+        "study_type": "",
+        "study_duration": {
+          "duration": "",
+          "details": [
+            ""
+          ]
+        },
+        "study_focus": "",
+        "study_scope": {
+            "study_sites": [""],
+            "description": [""],
+            "locations": [""]
+        },
+        "methodology": [
+            {
+                "name": "",
+                "description": "",
+                "methods": [""],
+                "goals": [""]
+            }
+        ],
+        "participant_age_group": {
+            "age_range": "",
+            "details": []
+        },
+        "weather_data": {
+            "time_period": "",
+            "details": [
+              ""
+              ],
+            "measurement": [
+              {
+                "measurement_type": "",
+                "description": "",
+                "formula": [""],
+                "variables": [],
+                "notes": ""
+              }
+            ]
+        },
+        "data_collection": "",
+        "title": "Use of earth observation-derived hydrometeorological  variables to model and predict rotavirus infection (MAL-ED):  a multisite cohort study",
+        "authors": "Josh M Colston, Benjamin Zaitchik, Gagandeep Kang, Pablo Peñataro Yori, Tahmeed Ahmed, Aldo Lima, Ali Turab, Esto Mduma,  Prakash Sunder Shrestha, Pascal Bessong, Roger D Peng, Robert E Black, Lawrence H Moulton, Margaret N Kosek",
+        "affiliation": "Department of International  Health (J M Colston PhD,  P Peñataro Yori MPH,  Prof R E Black MD,  Prof L H Moulton PhD,  M N Kosek MD),  and Department of  Biostatistics  (Prof R D Peng PhD), Johns  Hopkins Bloomberg School of  Public Health, Baltimore, MD,  USA; Department of Earth  and Planetary Sciences, Johns  Hopkins Krieger School of Arts  and Sciences, Baltimore, MD,  USA (B Zaitchik PhD); Christian  Medical College, Vellore, India  (Prof G Kang MD); Nutrition  & Clinical Services Division,  International Centre for  Diarrhoeal Disease Research,  Bangladesh (icddr,b), Dhaka,  Bangladesh (T Ahmed PhD);  Federal University of Ceará,  Fortaleza, Brazil (A Lima PhD);  Interactive Research and  Development, Maternal  and Child Health (MCH)  Program, Karachi, Pakistan  (A Turab MD); Haydom Global  Health Institute, Haydom,  Tanzania (E Mduma MSc);  Department of Child Health,  Institute of Medicine of  Tribhuvan University,  Kathmandu, Nepal  (P Sunder Shrestha MD);  and University of Venda,  Thohoyandou, South Africa  (Prof P Bessong PhD)",
+        "corresponding_author": "mkosek@jhu.edu",
+        "doi": "",
+        "date": "June 2019",
+        "github_repo": "",
+        "journal": "Lancet Planet Health",
+        "citation": ""
+    },
+    {
+        "article_type": "RESEARCH ARTICLE",
+        "study_type": "",
+        "study_duration": {
+          "duration": "",
+          "details": [
+            ""
+          ]
+        },
+        "study_focus": "",
+        "study_scope": {
+            "study_sites": [""],
+            "description": [""],
+            "locations": [""]
+        },
+        "methodology": [
+            {
+                "name": "",
+                "description": "",
+                "methods": [""],
+                "goals": [""]
+            }
+        ],
+        "participant_age_group": {
+            "age_range": "",
+            "details": []
+        },
+        "weather_data": {
+            "time_period": "",
+            "details": [
+              ""
+              ],
+            "measurement": [
+              {
+                "measurement_type": "",
+                "description": "",
+                "formula": [""],
+                "variables": [],
+                "notes": ""
+              }
+            ]
+        },
+        "data_collection": "",
+        "title": "Seasonality and the effects of weather on Campylobacter infections",
+        "authors": "Abdelmajid Djennad1*, Giovanni Lo Iacono2, Christophe Sarran3, Christopher Lane4, Richard Elson5,6, Christoph Höser7, Iain R. Lake8, Felipe J. Colón-González8, Sari Kovats9, Jan C. Semenza10, Trevor C. Bailey11, Anthony Kessel1,9, Lora E. Fleming11 and Gordon L. Nichols1",
+        "affiliation": "Statistics, Modelling and Economics Department, National Infection Service, Public Health England, 61, Colindale Avenue, London NW9 5EQ, UK",
+        "corresponding_author": "abdelmajid.djennad@phe.gov.uk",
+        "doi": "https://doi.org/10.1186/s12879-019-3840-7",
+        "date": "2019",
+        "github_repo": "",
+        "journal": "BMC Infectious Diseases",
+        "citation": "Djennad et al. BMC Infectious Diseases (2019)"
+    },
+    {
+        "article_type": "",
+        "study_type": "",
+        "study_duration": {
+          "duration": "",
+          "details": [
+            ""
+          ]
+        },
+        "study_focus": "",
+        "study_scope": {
+            "study_sites": [""],
+            "description": [""],
+            "locations": [""]
+        },
+        "methodology": [
+            {
+                "name": "",
+                "description": "",
+                "methods": [""],
+                "goals": [""]
+            }
+        ],
+        "participant_age_group": {
+            "age_range": "",
+            "details": []
+        },
+        "weather_data": {
+            "time_period": "",
+            "details": [
+              ""
+              ],
+            "measurement": [
+              {
+                "measurement_type": "",
+                "description": "",
+                "formula": [""],
+                "variables": [],
+                "notes": ""
+              }
+            ]
+        },
+        "data_collection": "",
+        "title": "",
+        "authors": "",
+        "affiliation": "",
+        "corresponding_author": "",
+        "doi": "",
+        "date": "",
+        "github_repo": "",
+        "journal": "",
+        "citation": ""
+    }
+]
+
+
+
+

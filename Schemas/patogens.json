@@ -1,0 +1,70 @@
+{
+      "group": [
+          {
+              "name": "GEMS data",
+              "description": "",
+              "pathogens": [
+                  {
+                      "name": "rotavirus",
+                      "description": ""
+                  },
+                  {
+                      "name": "Cryptosporidium",
+                      "description": ""
+                  },
+                  {
+                      "name": "Shigella spp.",
+                      "description": ""
+                  },
+                  {
+                      "name": "tEPEC",
+                      "description": "typical EPEC"
+                  },
+                  {
+                      "name": "ST-ETEC",
+                      "description": "enterotoxigenic Escherichia coli encoding heat-stable enterotoxin with or without genes encoding heat-labile enterotoxin"
+                  },
+                  {
+                      "name": "adenovirus 40/41",
+                      "description": ""
+                  },
+                  {
+                      "name": "Campylobacter spp",
+                      "description": ""
+                  }
+              ],
+              "measurements": [
+                  {
+                      "name": "Stool samples",
+                      "description": "Stool samples from enrolled children were tested for pathogens",
+                      "number": 9439
+                  }
+              ]
+          },
+          {
+              "name": "three pathogens",
+              "description": "three pathogens that were identified as prevalent in multiple sites  during at least one of the seasons",
+              "pathogens": [
+                  {
+                      "name": "V. cholerae",
+                      "description": ""
+                  },
+                  {
+                      "name": "norovirus GI",
+                      "description": ""
+                  },
+                  {
+                      "name": "norovirus GII",
+                      "description": ""
+                  }
+              ],
+              "measurements": [
+                  {
+                      "name": "Stool samples",
+                      "description": "Stool samples from enrolled children were tested for pathogens",
+                      "number": 9439
+                  }
+              ]
+          }
+      ]
+  }

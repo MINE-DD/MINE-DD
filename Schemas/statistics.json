@@ -1,0 +1,171 @@
+{
+      "methods": [
+          {
+              "method": "traditional methodologies from signal processing",
+              "description": "",
+              "goals": [
+                  {
+                      "goal": "estimate the annual, biannual, and other seasonal signals for each pathogen at each site"
+                  },
+                  {
+                      "goal": "quantification of uncertainty of each of these estimates to mitigate the impact of intrinsic stochasticity"
+                  },
+                  {
+                      "goal": "to identify the periodicity and within-season peak for each incidence time series"
+                  },
+                  {
+                      "goal": "identify the periodicity, or spectral power, for each resolvable frequency in the time series which includes annual and biannual periods and accounts for the constraint by the temporal length of GEMS and our two-week sampling interval."
+                  }
+              ],
+              "measurements": [
+                  {
+                      "name": "Lomb\u2013Scargle periodogram",
+                      "objective": "identify the periodicity, or spectral power, for each resolvable frequency in the time series",
+                      "assumption": "",
+                      "definition": "",
+                      "calculation": ""
+                  },
+                  {
+                      "name": "Fast Fourier transforms",
+                      "objective": "each combination of pathogen and site, we used the fast Fourier transform (FFT) to extract the relative phase of when each pathogen annually peaks. The FFT and periodogram are mathematically connected. Here, we use the FFT to identify the relative timing of the peak of disease incidence across diseases.",
+                      "assumption": "",
+                      "definition": "We performed this transformation with respect to the first day in the two-week period.",
+                      "calculation": "Computing the peak incidence from the FFT of the disease inci- dence time series was implemented in MATLAB version 2014A; the computational scripts can be found at [21]"
+                  },
+                  {
+                      "name": "spectral density",
+                      "objective": "",
+                      "assumption": "",
+                      "definition": "",
+                      "calculation": "We used the MATLAB function plomb from version 2014A to estimate the spectral density; see [21] for all computational scripts"
+                  },
+                  {
+                      "name": "uncertainty of the periodicity of a time series",
+                      "objective": "",
+                      "assumption": "",
+                      "definition": "",
+                      "calculation": "We quantify the uncertainty of the periodicity of a time series as a probability of false detection denoted as pfd < threshold"
+                  }
+              ]
+          },
+          {
+              "method": "machine-learning methodologies",
+              "description": "This methodology allows for seasons to vary in duration and initiation time",
+              "goals": [
+                  {
+                      "goal": "broadly characterize the seasonality"
+                  },
+                  {
+                      "goal": "identifying site-dependent seasons"
+                  },
+                  {
+                      "goal": "data driven seasons"
+                  },
+                  {
+                      "goal": "identify data-driven seasons from detailed environmental data to correlate with the periodicity of pathogen incidence"
+                  },
+                  {
+                      "goal": "formalize this observation and cluster the environmental data by site to identify data-driven seasons"
+                  }
+              ],
+              "measurements": [
+                  {
+                      "name": "principal component analysis (PCA)",
+                      "objective": "To define seasons using weather data, we used principal component analysis (PCA) to reduce the number of weather covariates from four to three. ",
+                      "assumption": "the PCA procedure reduced the dimensionality appropriately. We chose not to reduce dimensionality further, since the first two principal components only explained 88 to 96% of the variance in the weather data",
+                      "definition": "",
+                      "calculation": ""
+                  },
+                  {
+                      "name": "k-means clustering",
+                      "objective": "group weather\u2013months by similarity; three clusters best described the groupings of weather\u2013months.",
+                      "assumption": "",
+                      "definition": "",
+                      "calculation": ""
+                  }
+              ]
+          },
+          {
+              "method": "estimated prevalence",
+              "description": "Estimated prevalence of pathogens among children with moderate-to-severe diarrhea",
+              "goals": [
+                  {
+                      "goal": "estimate the number of children who would have tested positive for a pathogen had all eli- gible children been enrolled"
+                  }
+              ],
+              "measurements": [
+                  {
+                      "name": "number of eligible children positive for each pathogen",
+                      "objective": "",
+                      "assumption": "",
+                      "definition": "",
+                      "calculation": ""
+                  },
+                  {
+                      "name": "percentage of eligible children positive for each pathogen",
+                      "objective": "",
+                      "assumption": "",
+                      "definition": "",
+                      "calculation": ""
+                  },
+                  {
+                      "name": "proportion of tested cases who were positive.",
+                      "objective": "",
+                      "assumption": "we assume that the proportion of children testing positive for a pathogen is equal among enrollees and those eligible within the same age strata (0\u201311, 12\u201323, and 24\u201359 months old) and fortnight of clinic visit",
+                      "definition": "Fortnights are defined as consecutive 14-day periods starting with the first enrollment at each site",
+                      "calculation": ""
+                  }
+              ]
+          },
+          {
+              "method": "Identifying associations",
+              "description": "We estimated the strength of association between weather covariates (i.e., cumulative precipitation, average temperature, average relative humidity, and average specific humidity) over each fortnight and the estimated number of children positive by pathogen and by country",
+              "goals": [
+                  {
+                      "goal": "Identifying associations between environmental factors and pathogens"
+                  }
+              ],
+              "measurements": [
+                  {
+                      "name": "highest and lowest quartiles for the number of children with MSD estimated to be positive by fortnight",
+                      "objective": "",
+                      "assumption": "",
+                      "definition": "",
+                      "calculation": ""
+                  },
+                  {
+                      "name": "Wilcoxon rank-sum test",
+                      "objective": "The associations between pathogen prevalence and environmental values are computed using a Wilcoxon rank-sum test.",
+                      "assumption": "",
+                      "definition": "",
+                      "calculation": "The computations were performed in the R scientific computing environment [22] and the code can be found in [21]"
+                  }
+              ]
+          },
+          {
+              "method": "Determining significant differences in pathogen-positive cases by season",
+              "description": "",
+              "goals": [
+                  {
+                      "goal": ""
+                  }
+              ],
+              "measurements": [
+                  {
+                      "name": "Kruskal-Wallis test",
+                      "objective": "determine if the estimated number of children positive for pathogens each month had significant differences among our data-driven seasons",
+                      "assumption": "",
+                      "definition": "",
+                      "calculation": ""
+                  },
+                  {
+                      "name": "Dunn\u2019s test",
+                      "objective": "identify the pairs of seasons with significantly different numbers of children positive for pathogens.",
+                      "assumption": "",
+                      "definition": "",
+                      "calculation": ""
+                  }
+              ]
+          }
+      ]
+  }

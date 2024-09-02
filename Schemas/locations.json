@@ -1,0 +1,46 @@
+{
+      "location": [
+          {
+              "community": "Basse",
+              "city_village": "",
+              "country": "The Gambia",
+              "continent": "Africa"
+          },
+          {
+              "community": "Bamako",
+              "city_village": "",
+              "country": "Mali",
+              "continent": "Africa"
+          },
+          {
+              "community": "Nyaza Province",
+              "city_village": "",
+              "country": "Kenya",
+              "continent": "Africa"
+          },
+          {
+              "community": "Manhica",
+              "city_village": "",
+              "country": "Mozambique",
+              "continent": "Africa"
+          },
+          {
+              "community": "Karachi [Bin Qasim Town],",
+              "city_village": "",
+              "country": "Pakistan",
+              "continent": "Asia"
+          },
+          {
+              "community": "Kolkata",
+              "city_village": "",
+              "country": "India",
+              "continent": "Asia"
+          },
+          {
+              "community": "Mirzapur",
+              "city_village": "",
+              "country": "Bangladesh",
+              "continent": "Asia"
+          }
+      ]
+  }
