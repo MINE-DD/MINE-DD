@@ -64,9 +64,9 @@ def fill_database(db, files):
 
     # full text
     cursor.exexcute(query)
-
+    conn.commit()
     # Close database connection
-    conn.close
+    conn.close()
 
 
 def parse_files(files: list, page: bool=True):
