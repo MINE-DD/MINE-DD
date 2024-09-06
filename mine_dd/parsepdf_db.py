@@ -11,20 +11,30 @@ def create_connection(db_file):
     conn = sqlite3.connect(db_file)
     return conn
 
-def insert_query_pages(data, table):
+def insert_query_pages(filename, papertitle, publisheddate, data_pages, table):
     """Return SQL insert query"""
-    query = """
-        INSERT INTO literature_pages (title, page, publicationdate, pagetext)
-            values ("filetitle.pdf", 0, "01-01-2000", "the bodytext of the paper")
+    queryvalues =""
+    for i in range(len(data_pages)):
+        queryvalues += f"({filename}, {papertitle}, {publisheddate}, {i}, {data_pages[i].text}),"
+
+    query = f"""
+        INSERT INTO {table} (filename, title, publicationdate, page, fulltext)
+            values
+            {queryvalues}
         ;"""
     return query
 
 
-def insert_query_fulltext(data, table):
+def insert_query_fulltext(filename, papertitle, publisheddate, data_pages, table):
     """Return SQL insert query"""
-    query = """
-        INSERT INTO literature_pages (title, page, publicationdate, fulltext)
-            values ("filetitle.pdf", 0, "01-01-2000", "the bodytext of the paper")
+    queryvalues =""
+    for i in range(len(data_pages)):
+        queryvalues += f"({filename}, {papertitle}, {publisheddate}, {data_pages[i].text}),"
+
+    query = f"""
+        INSERT INTO {table} (filename, title, publicationdate, fulltext)
+            values
+            {queryvalues}
         ;"""
     return query
 
@@ -58,8 +68,8 @@ def fill_database(db, filename):
     cursor = conn.cursor()
 
     # pages
-    data_pages = parse_files(files, page=True)
-    query = insert_query_pages(data_pages, "literature_pages")
+    data_pages = parse_files(file, page=True)
+    query = insert_query_pages(filename, papertitle, publisheddate, data_pages, "literature_pages")
 
     # full text
     cursor.exexcute(query)
