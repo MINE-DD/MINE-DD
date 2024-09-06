@@ -32,3 +32,4 @@ venv3
 notebooks/llamaextract.ipynb
 notebooks/llama_pydantic.ipynb
 notebooks/llama_JSON_schema.ipynb
+notebooks/llama_pydantic.ipynb
