@@ -51,8 +51,7 @@ def create_database(db):
     conn.close
 
 
-
-def fill_database(db, files):
+def fill_database(db, filename):
     "return a page databse and a full database"
     # Create database connection
     conn = create_connection(db)
@@ -69,7 +68,7 @@ def fill_database(db, files):
     conn.close()
 
 
-def parse_files(files: list, page: bool=True):
+def parse_files(file, page: bool=True):
     parser = LlamaParse(
         result_type="markdown",  # "markdown" and "text" are available
         num_workers=8,
@@ -82,8 +81,8 @@ def parse_files(files: list, page: bool=True):
             """,
         split_by_page=page
     )
-    parsed_docs = parser.load_data(files)
-    return parsed_docs
+    parsed_doc = parser.load_data(file)
+    return parsed_doc
 
 
 if __name__ == '__main__':
@@ -96,7 +95,6 @@ if __name__ == '__main__':
     with os.scandir(folder) as entries:
         full_file_paths = [os.path.join(folder, entry.name) for entry in entries if entry.is_file()]
 
-    batchsize=16
-    for i in range(0, len(full_file_paths), batchsize):
-        filebatch = full_file_paths[i:i+batchsize]
-        fill_database(database, filebatch)
+    for i, file in enumerate(full_file_paths):
+        print(f"Parsing file {i} out of {len(full_file_paths)}, {file}")
+        fill_database(database, file)
