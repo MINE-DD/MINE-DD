@@ -13,7 +13,7 @@ def create_connection(db_file):
     conn = sqlite3.connect(db_file)
     return conn
 
-def insert_query_pages(filename, papertitle, publisheddate, data_pages, table):
+def insert_query_pages(filename, metadata, data_pages, table):
     """Return SQL insert query"""
     queryvalues =""
     for i in range(len(data_pages)):
