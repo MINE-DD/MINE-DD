@@ -110,8 +110,8 @@ def parse_files(file, page: bool=True):
     return parsed_doc
 
 
-def metadata(df, filepath):
-    filename = os.path.basename(filepath[0])
+def get_metadata(df, filepath):
+    filename = os.path.basename(filepath)
     metadata = df[df['PDF Name'] == filename]
     try:
         return metadata[['PDF Name', 'Name', 'Authors', 'DOI', 'Year', 'Journal']].to_numpy()[0]
@@ -137,5 +137,5 @@ if __name__ == '__main__':
 
     for i, file in enumerate(full_file_paths):
         print(f"Parsing file {i} out of {len(full_file_paths)}, {file}")
-        metadata = metadata(df_metadata, file)
+        metadata = get_metadata(df_metadata, file)
         if metadata: fill_database(database, file, metadata)
