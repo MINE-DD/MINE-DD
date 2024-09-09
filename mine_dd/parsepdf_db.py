@@ -13,30 +13,25 @@ def create_connection(db_file):
     conn = sqlite3.connect(db_file)
     return conn
 
-def insert_query_pages(filename, metadata, data_pages, table):
+def insert_query_pages(md, data_pages, table):
     """Return SQL insert query"""
-    queryvalues =""
+    queryvalues = []
     for i in range(len(data_pages)):
-        queryvalues += f"({filename}, {papertitle}, {publisheddate}, {i}, {data_pages[i].text}),"
+        queryvalues.append((md['PDF Name'], md['Name'], md['Authors'], md['DOI'], md['Year'], md['Journal'], len(data_pages), i, data_pages[i].text))
 
     query = f"""
-        INSERT INTO {table} (filename, title, authors, DOI, publicationyear, journal, pages, page, text)
-            values
-            {queryvalues}
+        INSERT INTO {table} (filename, title, authors, DOI, publicationyear, journal, pages, page, fulltext)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ;"""
-    return query
+    return query, queryvalues
 
 
-def insert_query_fulltext(filename, papertitle, publisheddate, data_pages, table):
+def insert_query_fulltext(table):
     """Return SQL insert query"""
-    queryvalues =""
-    for i in range(len(data_pages)):
-        queryvalues += f"({filename}, {papertitle}, {publisheddate}, {data_pages[i].text}),"
 
     query = f"""
-        INSERT INTO {table} (filename, title, authors, DOI, publicationyear, journal, text)
-            values
-            {queryvalues}
+        INSERT INTO {table} (filename, title, authors, DOI, publicationyear, journal, fulltext)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         ;"""
     return query
 
@@ -74,6 +69,8 @@ def create_database(db):
     conn.commit()
     conn.close
 
+    return
+
 
 def fill_database(db, filename, metadata):
     "return a page database and a full database"
@@ -83,12 +80,18 @@ def fill_database(db, filename, metadata):
 
     # pages
     data_pages = parse_files(file, page=True)
-    query = insert_query_pages(filename, metadata, data_pages, "literature_pages")
+    querypages, qvp = insert_query_pages(filename, metadata, data_pages, "literature_pages")
+    cursor.executemany(querypages, qvp)
 
     # full text
-    cursor.exexcute(query)
+    data_fulltext = parse_files(file, page=False)
+    queryfull = insert_query_fulltext(filename, metadata, data_fulltext, "literature_fulltext")
+    queryvalues = (metadata['PDF Name'], metadata['Name'], metadata['Authors'], metadata['DOI'],
+                   metadata['Year'], metadata['Journal'], data_fulltext[0].text)
+    cursor.execute(queryfull, queryvalues)
+
+    # execute query
     conn.commit()
-    # Close database connection
     conn.close()
 
 
