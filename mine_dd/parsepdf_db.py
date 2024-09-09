@@ -97,6 +97,18 @@ def parse_files(file, page: bool=True):
     return parsed_doc
 
 
+def metadata(df, filepath):
+    filename = os.path.basename(filepath[0])
+    metadata = df[df['PDF Name'] == filename]
+    try:
+        return metadata[['PDF Name', 'Name', 'Authors', 'DOI', 'Year', 'Journal']].to_numpy()[0]
+    except IndexError:
+        errordata = open("errordata.txt", "a")  
+        errordata.write(f"{datetime.datetime.now()}, failed: {filepath}")
+        errordata.close()
+        return 
+
+
 if __name__ == '__main__':
     llama_key = getpass("LlaMa cloud API key: ")
     os.environ["LLAMA_CLOUD_API_KEY"] = llama_key
