@@ -113,11 +113,12 @@ def parse_files(file, page: bool=True):
 def get_metadata(df, filepath):
     filename = os.path.basename(filepath)
     metadata = df[df['PDF Name'] == filename]
+
     try:
-        return metadata[['PDF Name', 'Name', 'Authors', 'DOI', 'Year', 'Journal']].to_numpy()[0]
+        return metadata[['PDF Name', 'Name', 'Authors', 'DOI', 'Year', 'Journal']].to_dict(orient='records')[0]
     except IndexError:
         errordata = open("errordata.txt", "a")  
-        errordata.write(f"{datetime.datetime.now()}, failed: {filepath}")
+        errordata.write(f"{datetime.datetime.now()}, failed: {filepath} \n")
         errordata.close()
         return 
 
