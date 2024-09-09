@@ -75,15 +75,15 @@ def create_database(db):
     conn.close
 
 
-def fill_database(db, filename):
-    "return a page databse and a full database"
+def fill_database(db, filename, metadata):
+    "return a page database and a full database"
     # Create database connection
     conn = create_connection(db)
     cursor = conn.cursor()
 
     # pages
     data_pages = parse_files(file, page=True)
-    query = insert_query_pages(filename, papertitle, publisheddate, data_pages, "literature_pages")
+    query = insert_query_pages(filename, metadata, data_pages, "literature_pages")
 
     # full text
     cursor.exexcute(query)
@@ -128,10 +128,14 @@ if __name__ == '__main__':
     database = "literature.db"
     create_database(database)
 
-    folder = "../notebooks/data"
+    folder = "../../relevant"
+    metadata_file = "../../relevant/result.csv"
+    df_metadata = pd.read_csv(metadata_file)
+
     with os.scandir(folder) as entries:
         full_file_paths = [os.path.join(folder, entry.name) for entry in entries if entry.is_file()]
 
     for i, file in enumerate(full_file_paths):
         print(f"Parsing file {i} out of {len(full_file_paths)}, {file}")
-        fill_database(database, file)
+        metadata = metadata(df_metadata, file)
+        if metadata: fill_database(database, file, metadata)
