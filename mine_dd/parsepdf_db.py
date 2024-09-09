@@ -10,26 +10,31 @@ from llama_parse import LlamaParse
 nest_asyncio.apply()
 
 def create_connection(db_file):
-    """ create a database connection to a SQLite database """
+    """Create a database connection to a SQLite database."""
     conn = sqlite3.connect(db_file)
     return conn
 
 
 def insert_query_pages(md, data_pages, table):
-    """Return SQL insert query"""
-    queryvalues = []
-    for i in range(len(data_pages)):
-        queryvalues.append((md['PDF Name'], md['Name'], md['Authors'], md['DOI'], md['Year'], md['Journal'], len(data_pages), i, data_pages[i].text))
-
+    """Create SQL insert query for individual paper pages.
+    This function:
+    - Sets up a SQL query template to insert values in a table.
+    - Organises the data for a bulk import to the sql database
+    """
     query = f"""
         INSERT INTO {table} (filename, title, authors, DOI, publicationyear, journal, pages, page, fulltext)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ;"""
+    
+    queryvalues = []
+    for i in range(len(data_pages)):
+        queryvalues.append((md['PDF Name'], md['Name'], md['Authors'], md['DOI'], md['Year'], md['Journal'], len(data_pages), i, data_pages[i].text))
+    
     return query, queryvalues
 
 
 def insert_query_fulltext(table):
-    """Return SQL insert query"""
+    """Create SQL insert query template for full text papers."""
 
     query = f"""
         INSERT INTO {table} (filename, title, authors, DOI, publicationyear, journal, fulltext)
@@ -38,8 +43,9 @@ def insert_query_fulltext(table):
     return query
 
 
-def create_database(db):
-    
+def create_db_tables(db):
+    """Create tables literature_pages and literature_fulltext in given database."""
+
     querypages = """
     CREATE TABLE IF NOT EXISTS literature_pages
     (   filename TEXT,
@@ -75,7 +81,7 @@ def create_database(db):
 
 
 def fill_database(db, filename, metadata):
-    "return a page database and a full database"
+    """Populate db tables with bodytext and metadata."""
     # Create database connection
     conn = create_connection(db)
     cursor = conn.cursor()
@@ -96,8 +102,11 @@ def fill_database(db, filename, metadata):
     conn.commit()
     conn.close()
 
+    return
+
 
 def parse_files(file, page: bool=True):
+    """Parse file usingn LlamaPase."""
     parser = LlamaParse(
         result_type="markdown",
         num_workers=8,
@@ -111,11 +120,12 @@ def parse_files(file, page: bool=True):
             """,
         split_by_page=page
     )
-    parsed_doc = parser.load_data(file)
-    return parsed_doc
+
+    return parser.load_data(file)
 
 
 def get_metadata(df, filepath):
+    """Select metadata for given filename."""
     filename = os.path.basename(filepath)
     metadata = df[df['PDF Name'] == filename]
 
@@ -125,7 +135,7 @@ def get_metadata(df, filepath):
         errordata = open("errordata.txt", "a")  
         errordata.write(f"{datetime.datetime.now()}, failed: {filepath} \n")
         errordata.close()
-        return None
+        return
 
 
 if __name__ == '__main__':
