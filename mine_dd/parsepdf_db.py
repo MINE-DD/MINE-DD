@@ -18,7 +18,7 @@ def insert_query_pages(filename, papertitle, publisheddate, data_pages, table):
         queryvalues += f"({filename}, {papertitle}, {publisheddate}, {i}, {data_pages[i].text}),"
 
     query = f"""
-        INSERT INTO {table} (filename, title, publicationdate, page, fulltext)
+        INSERT INTO {table} (filename, title, authors, DOI, publicationyear, journal, pages, page, text)
             values
             {queryvalues}
         ;"""
@@ -32,27 +32,37 @@ def insert_query_fulltext(filename, papertitle, publisheddate, data_pages, table
         queryvalues += f"({filename}, {papertitle}, {publisheddate}, {data_pages[i].text}),"
 
     query = f"""
-        INSERT INTO {table} (filename, title, publicationdate, fulltext)
+        INSERT INTO {table} (filename, title, authors, DOI, publicationyear, journal, text)
             values
             {queryvalues}
         ;"""
     return query
 
+
 def create_database(db):
     
     querypages = """
     CREATE TABLE IF NOT EXISTS literature_pages
-    (   title TEXT,
+    (   filename TEXT,
+        title TEXT,
+        authors TEXT,
+        DOI TEXT,
+        publicationyear DATE,
+        journal TEXT,
+        pages INT,
         page INT,
-        publicationdate DATE,
-        text TEXT
+        fulltext TEXT
     );"""
 
     queryfulltext = """
     CREATE TABLE IF NOT EXISTS literature_fulltext
-    (   title TEXT,
-        publicationdate DATE,
-        text TEXT
+    (   filename TEXT,
+        title TEXT,
+        authors TEXT,
+        publicationyear DATE,
+        DOI TEXT,
+        journal TEXT,
+        fulltext TEXT
     );"""
 
     conn = create_connection(db)
