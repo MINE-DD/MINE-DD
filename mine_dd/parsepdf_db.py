@@ -133,7 +133,7 @@ if __name__ == '__main__':
     df_metadata = pd.read_csv(metadata_file)
 
     with os.scandir(folder) as entries:
-        full_file_paths = [os.path.join(folder, entry.name) for entry in entries if entry.is_file()]
+        full_file_paths = [os.path.join(folder, entry.name) for entry in entries if entry.is_file() and entry.name.endswith(".pdf")]
 
     for i, file in enumerate(full_file_paths):
         print(f"Parsing file {i} out of {len(full_file_paths)}, {file}")
