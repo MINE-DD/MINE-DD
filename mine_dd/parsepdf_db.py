@@ -1,10 +1,11 @@
+import datetime
 import os
-from llama_parse import LlamaParse
-import nest_asyncio
 import sqlite3
 from getpass import getpass
+
+import nest_asyncio
 import pandas as pd
-import datetime
+from llama_parse import LlamaParse
 
 nest_asyncio.apply()
 
@@ -12,6 +13,7 @@ def create_connection(db_file):
     """ create a database connection to a SQLite database """
     conn = sqlite3.connect(db_file)
     return conn
+
 
 def insert_query_pages(md, data_pages, table):
     """Return SQL insert query"""
@@ -123,7 +125,7 @@ def get_metadata(df, filepath):
         errordata = open("errordata.txt", "a")  
         errordata.write(f"{datetime.datetime.now()}, failed: {filepath} \n")
         errordata.close()
-        return 
+        return None
 
 
 if __name__ == '__main__':
