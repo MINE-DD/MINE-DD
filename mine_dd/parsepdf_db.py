@@ -14,35 +14,6 @@ def create_connection(db_file):
     conn = sqlite3.connect(db_file)
     return conn
 
-
-def insert_query_pages(md, data_pages, table):
-    """Create SQL insert query for individual paper pages.
-    This function:
-    - Sets up a SQL query template to insert values in a table.
-    - Organises the data for a bulk import to the sql database
-    """
-    query = f"""
-        INSERT INTO {table} (filename, title, authors, DOI, publicationyear, journal, pages, page, fulltext)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ;"""
-    
-    queryvalues = []
-    for i in range(len(data_pages)):
-        queryvalues.append((md['PDF Name'], md['Name'], md['Authors'], md['DOI'], md['Year'], md['Journal'], len(data_pages), i, data_pages[i].text))
-    
-    return query, queryvalues
-
-
-def insert_query_fulltext(table):
-    """Create SQL insert query template for full text papers."""
-
-    query = f"""
-        INSERT INTO {table} (filename, title, authors, DOI, publicationyear, journal, fulltext)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ;"""
-    return query
-
-
 def create_db_tables(db):
     """Create tables literature_pages and literature_fulltext in given database."""
 
@@ -79,8 +50,33 @@ def create_db_tables(db):
 
     return
 
+def insert_query_pages(md, data_pages, table):
+    """Create SQL insert query for individual paper pages.
+    This function:
+    - Sets up a SQL query template to insert values in a table.
+    - Organises the data for a bulk import to the sql database
+    """
+    query = f"""
+        INSERT INTO {table} (filename, title, authors, DOI, publicationyear, journal, pages, page, fulltext)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ;"""
+    
+    queryvalues = []
+    for i in range(len(data_pages)):
+        queryvalues.append((md['PDF Name'], md['Name'], md['Authors'], md['DOI'], md['Year'], md['Journal'], len(data_pages), i, data_pages[i].text))
+    
+    return query, queryvalues
 
-def fill_database(db, filename, metadata):
+def insert_query_fulltext(table):
+    """Create SQL insert query template for full text papers."""
+
+    query = f"""
+        INSERT INTO {table} (filename, title, authors, DOI, publicationyear, journal, fulltext)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ;"""
+    return query
+
+def populate_database(db, filename, metadata):
     """Populate db tables with bodytext and metadata."""
     # Create database connection
     conn = create_connection(db)
@@ -104,7 +100,6 @@ def fill_database(db, filename, metadata):
 
     return
 
-
 def parse_files(file, page: bool=True):
     """Parse file usingn LlamaPase."""
     parser = LlamaParse(
@@ -122,7 +117,6 @@ def parse_files(file, page: bool=True):
     )
 
     return parser.load_data(file)
-
 
 def get_metadata(df, filepath):
     """Select metadata for given filename."""
