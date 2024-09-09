@@ -100,36 +100,42 @@ def populate_database(db, filename, metadata):
 
     return
 
-def parse_files(file, page: bool=True):
-    """Parse file usingn LlamaPase."""
-    parser = LlamaParse(
-        result_type="markdown",
-        num_workers=8,
-        verbose=True,
-        language="en",
-        skip_diagonal_text=True,
-        show_progress=True,
-        fast_mode=False,
-        parsing_instruction= """
-            This is a research paper.
-            """,
-        split_by_page=page
-    )
 
-    return parser.load_data(file)
+class DataHandler:
+    def __init__(self, llama_key, file):
+        self.file = file
+        os.environ["LLAMA_CLOUD_API_KEY"] = llama_key
 
-def get_metadata(df, filepath):
-    """Select metadata for given filename."""
-    filename = os.path.basename(filepath)
-    metadata = df[df['PDF Name'] == filename]
+    def parse_files(self, page=True):
+        """Parse file usingn LlamaPase."""
+        parser = LlamaParse(
+            result_type="markdown",
+            num_workers=8,
+            verbose=True,
+            language="en",
+            skip_diagonal_text=True,
+            show_progress=True,
+            fast_mode=False,
+            parsing_instruction= """
+                This is a research paper.
+                """,
+            split_by_page=page
+        )
 
-    try:
-        return metadata[['PDF Name', 'Name', 'Authors', 'DOI', 'Year', 'Journal']].to_dict(orient='records')[0]
-    except IndexError:
-        errordata = open("errordata.txt", "a")  
-        errordata.write(f"{datetime.datetime.now()}, failed: {filepath} \n")
-        errordata.close()
-        return
+        return parser.load_data(self.file)
+
+    def get_metadata(self, df):
+        """Select metadata for given filename."""
+        filename = os.path.basename(self.file)
+        metadata = df[df['PDF Name'] == filename]
+
+        try:
+            return metadata[['PDF Name', 'Name', 'Authors', 'DOI', 'Year', 'Journal']].to_dict(orient='records')[0]
+        except IndexError:
+            errordata = open("errordata.txt", "a")  
+            errordata.write(f"{datetime.datetime.now()}, failed: {self.file} \n")
+            errordata.close()
+            return
 
 
 if __name__ == '__main__':
