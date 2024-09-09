@@ -82,14 +82,15 @@ def fill_database(db, filename):
 
 def parse_files(file, page: bool=True):
     parser = LlamaParse(
-        result_type="markdown",  # "markdown" and "text" are available
+        result_type="markdown",
         num_workers=8,
         verbose=True,
-        language="en", 
+        language="en",
+        skip_diagonal_text=True,
         show_progress=True,
         fast_mode=False,
-        parsing_instruction= """ 
-            This is a research paper. 
+        parsing_instruction= """
+            This is a research paper.
             """,
         split_by_page=page
     )
