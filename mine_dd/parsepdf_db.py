@@ -40,17 +40,19 @@ def insert_query_fulltext(filename, papertitle, publisheddate, data_pages, table
 
 def create_database(db):
     
-    querypages = """CREATE TABLE IF NOT EXISTS literature_pages
-    (title TEXT,
-    page INT,
-    publicationdate DATE,
-    text TEXT
+    querypages = """
+    CREATE TABLE IF NOT EXISTS literature_pages
+    (   title TEXT,
+        page INT,
+        publicationdate DATE,
+        text TEXT
     );"""
 
-    queryfulltext = """CREATE TABLE IF NOT EXISTS literature_fulltext
-    (title TEXT,
-    publicationdate DATE,
-    text TEXT
+    queryfulltext = """
+    CREATE TABLE IF NOT EXISTS literature_fulltext
+    (   title TEXT,
+        publicationdate DATE,
+        text TEXT
     );"""
 
     conn = create_connection(db)
