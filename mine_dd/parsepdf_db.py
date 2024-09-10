@@ -9,101 +9,94 @@ from llama_parse import LlamaParse
 
 nest_asyncio.apply()
 
-def create_connection(db_file):
-    """Create a database connection to a SQLite database."""
-    conn = sqlite3.connect(db_file)
-    return conn
+class DatabaseHandler:
+    def __init__(self, db_file):
+        self.db_file = db_file
+        self.conn = self.create_connection()
+        
+    def create_connection(self):
+        """Create a database connection to a SQLite database."""
+        return sqlite3.connect(self.db_file)
 
-def create_db_tables(db):
-    """Create tables literature_pages and literature_fulltext in given database."""
+    def create_db_tables(self):
+        """Create tables literature_pages and literature_fulltext in given database."""
 
-    querypages = """
-    CREATE TABLE IF NOT EXISTS literature_pages
-    (   filename TEXT,
-        title TEXT,
-        authors TEXT,
-        DOI TEXT,
-        publicationyear DATE,
-        journal TEXT,
-        pages INT,
-        page INT,
-        fulltext TEXT
-    );"""
+        querypages = """
+        CREATE TABLE IF NOT EXISTS literature_pages
+        (   filename TEXT,
+            title TEXT,
+            authors TEXT,
+            DOI TEXT,
+            publicationyear DATE,
+            journal TEXT,
+            pages INT,
+            page INT,
+            fulltext TEXT
+        );"""
 
-    queryfulltext = """
-    CREATE TABLE IF NOT EXISTS literature_fulltext
-    (   filename TEXT,
-        title TEXT,
-        authors TEXT,
-        publicationyear DATE,
-        DOI TEXT,
-        journal TEXT,
-        fulltext TEXT
-    );"""
+        queryfulltext = """
+        CREATE TABLE IF NOT EXISTS literature_fulltext
+        (   filename TEXT,
+            title TEXT,
+            authors TEXT,
+            publicationyear DATE,
+            DOI TEXT,
+            journal TEXT,
+            fulltext TEXT
+        );"""
 
-    conn = create_connection(db)
-    cursor = conn.cursor()
-    cursor.execute(querypages)
-    cursor.execute(queryfulltext)
-    conn.commit()
-    conn.close
+        cursor = self.conn.cursor()
+        cursor.execute(querypages)
+        cursor.execute(queryfulltext)
+        self.conn.commit()
 
-    return
+        return
 
-def insert_query_pages(md, data_pages, table):
-    """Create SQL insert query for individual paper pages.
-    This function:
-    - Sets up a SQL query template to insert values in a table.
-    - Organises the data for a bulk import to the sql database
-    """
-    query = f"""
-        INSERT INTO {table} (filename, title, authors, DOI, publicationyear, journal, pages, page, fulltext)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ;"""
-    
-    queryvalues = []
-    for i in range(len(data_pages)):
-        queryvalues.append((md['PDF Name'], md['Name'], md['Authors'], md['DOI'], md['Year'], md['Journal'], len(data_pages), i, data_pages[i].text))
-    
-    return query, queryvalues
+    def insert_pages(self, md, data_pages):
+        """Create SQL insert query for individual paper pages.
+        This function:
+        - Sets up a SQL query template to insert values in a table.
+        - Organises the data for a bulk import to the sql database
+        """
+        query = f"""
+            INSERT INTO literature_pages (filename, title, authors, DOI, publicationyear, journal, pages, page, fulltext)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ;"""
+        
+        queryvalues = []
+        for i in range(len(data_pages)):
+            queryvalues.append((md['PDF Name'], md['Name'], md['Authors'], md['DOI'], md['Year'], md['Journal'],
+                                len(data_pages), i, data_pages[i].text))
+        
+        cursor = self.conn.cursor()
+        cursor.executemany(query, queryvalues)
+        self.conn.commit()
 
-def insert_query_fulltext(table):
-    """Create SQL insert query template for full text papers."""
+        return
 
-    query = f"""
-        INSERT INTO {table} (filename, title, authors, DOI, publicationyear, journal, fulltext)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ;"""
-    return query
+    def insert_fulltext(self, metadata, data_fulltext):
+        """Create SQL insert query template for full text papers."""
 
-def populate_database(db, filename, metadata):
-    """Populate db tables with bodytext and metadata."""
-    # Create database connection
-    conn = create_connection(db)
-    cursor = conn.cursor()
+        query = f"""
+            INSERT INTO literature_fulltext (filename, title, authors, DOI, publicationyear, journal, fulltext)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ;"""
+        
+        queryvalues = (metadata['PDF Name'], metadata['Name'], metadata['Authors'], metadata['DOI'],
+                    metadata['Year'], metadata['Journal'], data_fulltext[0].text)
+        
+        # Execute query
+        cursor = self.conn.cursor()
+        cursor.execute(query, queryvalues)
+        self.conn.commit()
 
-    # pages
-    data_pages = parse_files(file, page=True)
-    querypages, qvp = insert_query_pages(filename, metadata, data_pages, "literature_pages")
-    cursor.executemany(querypages, qvp)
-
-    # full text
-    data_fulltext = parse_files(file, page=False)
-    queryfull = insert_query_fulltext(filename, metadata, data_fulltext, "literature_fulltext")
-    queryvalues = (metadata['PDF Name'], metadata['Name'], metadata['Authors'], metadata['DOI'],
-                   metadata['Year'], metadata['Journal'], data_fulltext[0].text)
-    cursor.execute(queryfull, queryvalues)
-
-    # execute query
-    conn.commit()
-    conn.close()
-
-    return
+        return query
 
 
-class DataHandler:
-    def __init__(self, llama_key, file):
+class DataParser:
+    def __init__(self, llama_key, metadata_file):
         self.file = file
+        self.df = pd.read_csv(metadata_file)
         os.environ["LLAMA_CLOUD_API_KEY"] = llama_key
 
     def parse_files(self, page=True):
@@ -124,34 +117,55 @@ class DataHandler:
 
         return parser.load_data(self.file)
 
-    def get_metadata(self, df):
+    def get_metadata(self, file, df):
         """Select metadata for given filename."""
-        filename = os.path.basename(self.file)
+        filename = os.path.basename(file)
         metadata = df[df['PDF Name'] == filename]
 
         try:
             return metadata[['PDF Name', 'Name', 'Authors', 'DOI', 'Year', 'Journal']].to_dict(orient='records')[0]
         except IndexError:
             errordata = open("errordata.txt", "a")  
-            errordata.write(f"{datetime.datetime.now()}, failed: {self.file} \n")
+            errordata.write(f"{datetime.datetime.now()}, failed: {self.filename} \n")
             errordata.close()
             return
 
 
+class PdfParsedDatbase:
+    def __init__(self, db_file, paperfolder, metadata_file):
+        self.database_handler = DatabaseHandler(db_file)
+        self.paperfolder = paperfolder
+        self.data_handler = DataParser(metadata_file)
+    
+    def parse_pdfs_to_db(self):
+        self.database_handler.create_db_tables()
+
+        llama_key = getpass("LlaMa cloud API key: ")
+        parser = DataParser(llama_key)
+        
+        with os.scandir(folder) as entries:
+            full_file_paths = [os.path.join(folder, entry.name) for entry in entries
+                               if entry.is_file() and entry.name.endswith(".pdf")]
+
+        for i, file in enumerate(full_file_paths):
+            print(f"Parsing file {i} out of {len(full_file_paths)}, {file}")
+            metadata = self.parser.get_metadata(file)
+
+            if metadata:
+                data_pages = parser.parse_files(file, page=True)
+                self.database_handler.insert_pages(metadata, data_pages)
+
+                data_fulltext = parser.parse_files(file, page=False)
+                self.database_handler.insert_fulltext(metadata, data_fulltext)
+        
+        # Close db connection
+        self.database_handler.close_connection()
+
+
 if __name__ == '__main__':
-    llama_key = getpass("LlaMa cloud API key: ")
-    os.environ["LLAMA_CLOUD_API_KEY"] = llama_key
     database = "literature.db"
-    create_database(database)
-
-    folder = "../../relevant"
+    paperfolder = "../../relevant"
     metadata_file = "../../relevant/result.csv"
-    df_metadata = pd.read_csv(metadata_file)
 
-    with os.scandir(folder) as entries:
-        full_file_paths = [os.path.join(folder, entry.name) for entry in entries if entry.is_file() and entry.name.endswith(".pdf")]
-
-    for i, file in enumerate(full_file_paths):
-        print(f"Parsing file {i} out of {len(full_file_paths)}, {file}")
-        metadata = get_metadata(df_metadata, file)
-        if metadata: fill_database(database, file, metadata)
+    PdfParsedDatbase(database, paperfolder, metadata_file)
+    
