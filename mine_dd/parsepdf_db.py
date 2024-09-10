@@ -119,18 +119,24 @@ class DataParser:
             split_by_page=page
         )
 
-        return parser.load_data(self.file)
+        return parser.load_data(file)
 
-    def get_metadata(self, file, df):
+
+class MetaData:
+    def __init__(self, metadata_file):
+        self.df = pd.read_csv(metadata_file)
+
+    def get_metadata(self, file):
         """Select metadata for given filename."""
         filename = os.path.basename(file)
-        metadata = df[df['PDF Name'] == filename]
+        metadata = self.df[self.df['PDF Name'] == filename]
 
         try:
-            return metadata[['PDF Name', 'Name', 'Authors', 'DOI', 'Year', 'Journal']].to_dict(orient='records')[0]
+            return metadata[['PDF Name', 'Name', 'Authors', 'DOI', 'Year', 'Journal'
+                             ]].to_dict(orient='records')[0]
         except IndexError:
             errordata = open("errordata.txt", "a")  
-            errordata.write(f"{datetime.datetime.now()}, failed: {self.filename} \n")
+            errordata.write(f"{datetime.datetime.now()}, failed: {filename} \n")
             errordata.close()
             return
 
@@ -139,7 +145,7 @@ class PdfParsedDatbase:
     def __init__(self, db_file, paperfolder, metadata_file):
         self.database_handler = DatabaseHandler(db_file)
         self.paperfolder = paperfolder
-        self.data_handler = DataParser(metadata_file)
+        self.metadata = MetaData(metadata_file)
     
     def parse_pdfs_to_db(self):
         self.database_handler.create_db_tables()
@@ -152,8 +158,8 @@ class PdfParsedDatbase:
                                if entry.is_file() and entry.name.endswith(".pdf")]
 
         for i, file in enumerate(full_file_paths):
-            print(f"Parsing file {i} out of {len(full_file_paths)}, {file}")
-            metadata = self.parser.get_metadata(file)
+            print(f"Parsing file {i} out of {len(full_file_paths)}, {os.path.basename(file)}")
+            metadata = self.metadata.get_metadata(file)
 
             if metadata:
                 data_pages = parser.parse_files(file, page=True)
