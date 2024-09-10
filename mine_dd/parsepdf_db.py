@@ -51,6 +51,10 @@ class DatabaseHandler:
         self.conn.commit()
 
         return
+    
+    def close_connection(self):
+        """Close to connection to the SQL database."""
+        return self.conn.close()
 
     def insert_pages(self, md, data_pages):
         """Create SQL insert query for individual paper pages.
