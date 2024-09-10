@@ -101,7 +101,7 @@ class PdfParser:
     def __init__(self, llama_key):
         os.environ["LLAMA_CLOUD_API_KEY"] = llama_key
 
-    def parse_files(self, page=True):
+    def parse_files(self, file, page=True):
         """Parse file usingn LlamaPase."""
         parser = LlamaParse(
             result_type="markdown",
@@ -151,8 +151,8 @@ class PdfParsedDatbase:
         llama_key = getpass("LlaMa cloud API key: ")
         parser = PdfParser(llama_key)
         
-        with os.scandir(folder) as entries:
-            full_file_paths = [os.path.join(folder, entry.name) for entry in entries
+        with os.scandir(self.paperfolder) as entries:
+            full_file_paths = [os.path.join(self.paperfolder, entry.name) for entry in entries
                                if entry.is_file() and entry.name.endswith(".pdf")]
 
         for i, file in enumerate(full_file_paths):
@@ -168,6 +168,8 @@ class PdfParsedDatbase:
         
         # Close db connection
         self.database_handler.close_connection()
+
+        return
 
 
 if __name__ == '__main__':
