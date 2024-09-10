@@ -63,14 +63,15 @@ class DatabaseHandler:
         - Organises the data for a bulk import to the sql database
         """
         query = f"""
-            INSERT INTO literature_pages (filename, title, authors, DOI, publicationyear, journal, pages, page, fulltext)
+            INSERT INTO literature_pages (filename, title, authors, DOI, publicationyear,
+                journal, pages, page, fulltext)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ;"""
         
         queryvalues = []
         for i in range(len(data_pages)):
-            queryvalues.append((md['PDF Name'], md['Name'], md['Authors'], md['DOI'], md['Year'], md['Journal'],
-                                len(data_pages), i, data_pages[i].text))
+            queryvalues.append((md['PDF Name'], md['Name'], md['Authors'], md['DOI'], md['Year'],
+                                md['Journal'], len(data_pages), i, data_pages[i].text))
         
         cursor = self.conn.cursor()
         cursor.executemany(query, queryvalues)
@@ -82,7 +83,8 @@ class DatabaseHandler:
         """Create SQL insert query template for full text papers."""
 
         query = f"""
-            INSERT INTO literature_fulltext (filename, title, authors, DOI, publicationyear, journal, fulltext)
+            INSERT INTO literature_fulltext (filename, title, authors, DOI, publicationyear,
+                journal, fulltext)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             ;"""
         
