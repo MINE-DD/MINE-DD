@@ -97,10 +97,8 @@ class DatabaseHandler:
         return query
 
 
-class DataParser:
-    def __init__(self, llama_key, metadata_file):
-        self.file = file
-        self.df = pd.read_csv(metadata_file)
+class PdfParser:
+    def __init__(self, llama_key):
         os.environ["LLAMA_CLOUD_API_KEY"] = llama_key
 
     def parse_files(self, page=True):
@@ -151,7 +149,7 @@ class PdfParsedDatbase:
         self.database_handler.create_db_tables()
 
         llama_key = getpass("LlaMa cloud API key: ")
-        parser = DataParser(llama_key)
+        parser = PdfParser(llama_key)
         
         with os.scandir(folder) as entries:
             full_file_paths = [os.path.join(folder, entry.name) for entry in entries
