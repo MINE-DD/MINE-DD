@@ -171,5 +171,4 @@ if __name__ == '__main__':
     paperfolder = "../../relevant"
     metadata_file = "../../relevant/result.csv"
 
-    PdfParsedDatbase(database, paperfolder, metadata_file)
-    
+    PdfParsedDatbase(database, paperfolder, metadata_file).parse_pdfs_to_db()
