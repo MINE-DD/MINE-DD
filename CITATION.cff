@@ -16,7 +16,9 @@ authors:
 version: "0.1.0"
 repository-code: "https://github.com/MINE-DD/mine-dd"
 keywords:
-  - nlp
-  - diarrhea
+  - "text mining"
+  - " LLM"
+  - " NLP"
+  - " information extraction"
 message: "If you use this software, please cite it using these metadata."
 license: Apache-2.0
