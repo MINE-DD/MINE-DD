@@ -27,7 +27,7 @@ of the
 guide](https://guide.esciencecenter.nl/#/best_practices/language_guides/python?id=dependencies-and-package-management).
 
 - Runtime dependencies should be added to `pyproject.toml` in the `dependencies` list under `[project]`.
-- Development dependencies should be added to `pyproject.toml` in one of the lists under `[project.optional-dependencies]`.
+- Development dependencies, such as for testing or documentation, should be added to `pyproject.toml` in one of the lists under `[project.optional-dependencies]`.
 
 ## Packaging/One command install
 
@@ -62,8 +62,7 @@ help you decide which tool to use for packaging.
 
 ## Coding style conventions and code quality
 
-- [Relevant section in the NLeSC guide](https://guide.esciencecenter.nl/#/best_practices/language_guides/python?id=coding-style-conventions).
-## Continuous code quality
+- [Relevant section in the NLeSC guide](https://guide.esciencecenter.nl/#/best_practices/language_guides/python?id=coding-style-conventions) and [README.dev.md](README.dev.md).
 
 [Sonarcloud](https://sonarcloud.io/) is used to perform quality analysis and code coverage report
 
@@ -73,7 +72,7 @@ help you decide which tool to use for packaging.
 ## Package version number
 
 - We recommend using [semantic versioning](https://guide.esciencecenter.nl/#/best_practices/releases?id=semantic-versioning).
-- For convenience, the package version is stored in a single place: `mine-dd/pyproject.toml` under the `tool.bumpversion` header.
+- For convenience, the package version is stored in a single place: `pyproject.toml` under the `tool.bumpversion` header.
 - Don't forget to update the version number before [making a release](https://guide.esciencecenter.nl/#/best_practices/releases)!
 
 ## Logging

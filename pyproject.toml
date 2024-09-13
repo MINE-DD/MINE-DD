@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 authors = [
-    { name = "Jane Smith", email = "l.ootes@esciencecenter.nl" }
+    { name = "Laura Ootes", email = "l.ootes@esciencecenter.nl" }
 ]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
@@ -23,11 +23,8 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = []
-description = "MINE-DD"
-keywords = [
-    "nlp",
-    "diarrhea",
-]
+description = "Extract structured information from literature papers"
+keywords = ["text mining"," LLM"," NLP"," information extraction"]
 license = {file = "LICENSE"}
 name = "mine_dd"
 readme = {file = "README.md", content-type = "text/markdown"}
@@ -39,7 +36,6 @@ dev = [
     "build",  # build is not only used in publishing (below), but also in the template's test suite
     "bump-my-version",
     "coverage [toml]",
-    "pydantic",
     "pytest",
     "pytest-cov",
     "ruff",
@@ -47,6 +43,12 @@ dev = [
     "sphinx_rtd_theme",
     "sphinx-autoapi",
     "tox",
+    "myst_parser",
+]
+docs = [
+    "sphinx",
+    "sphinx_rtd_theme",
+    "sphinx-autoapi",
     "myst_parser",
 ]
 publishing = [
@@ -63,9 +65,10 @@ Changelog = "https://github.com/MINE-DD/mine-dd/CHANGELOG.md"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
+
 [tool.coverage.run]
 branch = true
-source = ["mine_dd"]
+source = ["src/mine_dd"]
 command_line = "-m pytest"
 
 [tool.isort]
@@ -75,11 +78,6 @@ no_lines_before = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"
 known_first_party = "mine_dd"
 src_paths = ["mine_dd", "tests"]
 line_length = 120
-
-# For completeness, until we move to an src-based layout
-[tool.setuptools.packages.find]
-include = ["mine_dd*"]
-exclude = ["tests*"]
 
 [tool.tox]
 legacy_tox_ini = """
@@ -92,76 +90,42 @@ extras = dev
 """
 
 [tool.ruff]
-# Enable Pyflakes `E` and `F` codes by default.
-select = [
-    "F",  # Pyflakes
-    "E",  # pycodestyle (error)
-    "W",    # pycodestyle (warning)
-    # "C90",  # mccabe
-    "I",    # isort
-    "D",    # pydocstyle
-    # "PL",   # Pylint
-    # "PLC",  # Convention
-    # "PLE",  # Error
-    # "PLR",  # Refactor
-    # "PLW",  # Warning
+line-length = 120
+output-format = "concise"
+extend-exclude = ["docs"]
 
-]
-ignore = [
-    'D100',  # Missing module docstring
-    'D104',  # Missing public package docstring
-    # The following list excludes rules irrelevant to the Google style
-    'D203',
-    'D204',
-    'D213',
-    'D215',
-    'D400',
-    'D401',
-    'D404',
-    'D406',
-    'D407',
-    'D408',
-    'D409',
-    'D413',
-]
-
-# Allow autofix for all enabled rules (when `--fix`) is provided.
-fixable = ["A", "B", "C", "D", "E", "F", "I"]
-unfixable = []
-
-exclude = [
-    ".bzr",
-    ".direnv",
-    ".eggs",
-    ".git",
-    ".hg",
-    ".mypy_cache",
-    ".nox",
-    ".pants.d",
-    ".ruff_cache",
-    ".svn",
-    ".tox",
-    ".venv",
-    "__pypackages__",
-    "_build",
-    "buck-out",
-    "build",
-    "dist",
-    "node_modules",
-    "venv",
-    ".venv",
-    "scripts",
-]
-per-file-ignores = {}
-
-
+[tool.ruff.lint]
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
-target-version = "py39"
-line-length = 120
+# Enable Pyflakes `E` and `F` codes by default.
+select = ["ALL"]
+ignore = [
+    "ANN101", # Missing type annotation for `self` in method
+    "ANN102", # Missing type annotation for `cls` in classmethod
+    "ANN204", # Missing return type annotation for special (dunder) method
+    "FBT",    # Using boolean function arguments
+    "TD",     # TODOs
+    "FIX001", # Resolve FIXMEs
+    "FIX002", # Resolve TODOs
+    "B028",   # No explicit `stacklevel` keyword argument found in warning
+    # No docstrings required in the following cases
+    "D100", # Missing module docstring
+    "D104", # Missing public package docstring
+    "D105", # Missing docstring in magic method
+    "D107", # Missing docstring in `__init__`
+]
+pydocstyle.convention = "google"
 
-[tool.ruff.isort]
+[tool.ruff.lint.per-file-ignores]
+# Tests can ignore a few extra rules
+"tests/**.py" = [
+    "ANN201", # Missing return type annotation for public function
+    "PT011",  # Missing `match` parameter in `pytest.raises()`
+    "S101",   # Use of assert is detected
+]
+
+[tool.ruff.lint.isort]
 known-first-party = ["mine_dd"]
 force-single-line = true
 no-lines-before = ["future","standard-library","third-party","first-party","local-folder"]
@@ -170,7 +134,7 @@ no-lines-before = ["future","standard-library","third-party","first-party","loca
 current_version = "0.1.0"
 
 [[tool.bumpversion.files]]
-filename = "mine_dd/__init__.py"
+filename = "src/mine_dd/__init__.py"
 
 [[tool.bumpversion.files]]
 filename = "pyproject.toml"

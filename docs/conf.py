@@ -18,8 +18,8 @@
 # -- Project information -----------------------------------------------------
 
 project = u"mine_dd"
-copyright = u"2024, Netherlands eScience Center"
-author = u"Jane Smith"
+copyright = u"2024-09-13 14:02:58, Netherlands eScience Center"
+author = u"Laura Ootes"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -61,7 +61,7 @@ todo_include_todos = False
 
 # -- Use autoapi.extension to run sphinx-apidoc -------
 
-autoapi_dirs = ['../mine_dd']
+autoapi_dirs = ['../src/mine_dd']
 
 # -- Options for HTML output ----------------------------------------------
 

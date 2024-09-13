@@ -1,0 +1,18 @@
+# Changes here will be overwritten by Copier
+SelectCodeQualityFeatures: []
+SelectCommunityFeatures: []
+SelectDocumentationFeatures:
+- AddLocalDocumentation_flag
+SelectPublishReleaseFeatures: []
+_commit: 0.6.1
+_src_path: https://github.com/nlesc/python-template.git
+copyright_holder: Netherlands eScience Center
+email: l.ootes@esciencecenter.nl
+full_name: Laura Ootes
+github_organization: MINE-DD
+keywords: text mining, LLM, NLP, information extraction
+license: Apachev2
+package_name: mine_dd
+package_short_description: Extract structured information from literature papers
+template_profile: recommended
+version: 0.1.0
