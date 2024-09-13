@@ -39,6 +39,7 @@ dev = [
     "build",  # build is not only used in publishing (below), but also in the template's test suite
     "bump-my-version",
     "coverage [toml]",
+    "pydantic",
     "pytest",
     "pytest-cov",
     "ruff",
