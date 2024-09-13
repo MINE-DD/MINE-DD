@@ -186,7 +186,7 @@ class PdfParsedDatbase:
 
 if __name__ == '__main__':
     database = "literature.db"
-    paperfolder = "../../relevant"
-    metadata_file = "../../relevant/result.csv"
+    paperfolder = input("Path of the folder with pdf papers:")
+    metadata_file = input("Path of the csv file with metadata:")
 
     PdfParsedDatbase(database, paperfolder, metadata_file).parse_pdfs_to_db()
