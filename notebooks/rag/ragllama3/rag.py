@@ -18,7 +18,8 @@ from langchain.schema import Document, AIMessage
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 ## - to make/store embeddings
 from langchain_community.vectorstores import SKLearnVectorStore
-from langchain_community.embeddings.spacy_embeddings import SpacyEmbeddings
+#from langchain_community.embeddings.spacy_embeddings import SpacyEmbeddings
+from langchain_nomic.embeddings import NomicEmbeddings
 from langchain_core.messages import HumanMessage, SystemMessage
 ## - to build/run a langgraph
 from langgraph.graph import StateGraph, START, END
@@ -82,7 +83,8 @@ def create_retriever(persist_path, database_path, documents=None):
     if exists(persist_path):
 
         vectorstore = SKLearnVectorStore(
-            embedding=SpacyEmbeddings(model_name='en_core_web_sm'),
+            #embedding=SpacyEmbeddings(model_name='en_core_web_sm'),
+            embedding=NomicEmbeddings(model="nomic-embed-text-v1.5", inference_mode="local"),
             persist_path=persist_path,
             serializer="bson")
         print("Vector store was loaded from", persist_path)
@@ -92,7 +94,8 @@ def create_retriever(persist_path, database_path, documents=None):
             documents=text_splitter(database_path)
         vectorstore = SKLearnVectorStore.from_documents(
             documents=documents,
-            embedding=SpacyEmbeddings(model_name='en_core_web_sm'),
+            #embedding=SpacyEmbeddings(model_name='en_core_web_sm'),
+            embedding=NomicEmbeddings(model="nomic-embed-text-v1.5", inference_mode="local"),
             persist_path=persist_path,
             serializer="bson")
         vectorstore.persist()
