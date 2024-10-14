@@ -74,6 +74,7 @@ def text_splitter(database_path):
 
     documents = text_splitter.create_documents([text for text in docs])
     return documents
+
 def create_retriever(persist_path, database_path, documents=None):
     """This function creates/loads embeddings from documents and it returns a retriever"""
     folder = os.path.dirname(persist_path)
@@ -303,7 +304,11 @@ def run_agentic_rag(question):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run agentic RAG with a custom question.")
-    parser.add_argument("question", type=str, help="The question to ask the RAG system.")
+    parser.add_argument(
+        "question", type=str, help="The question to ask the RAG system.",
+        required=False,
+        default="What is the role of enviromental factors in the prevalence of diarrheal pathogens?"
+        )
 
     # Parse the argument
     args = parser.parse_args()
