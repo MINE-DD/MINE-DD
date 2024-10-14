@@ -52,29 +52,13 @@ def format_docs(docs):
 def extract_full_text_content(database_path):
     conn = sqlite3.connect(database_path)
     cursor = conn.cursor()
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-
-    text_content = []
-
-    # get fulltext table content
-    table_name = 'literature_fulltext'
-    cursor.execute(f"PRAGMA table_info({table_name});")
-    columns = cursor.fetchall()
-    column_types = [col[2] for col in columns]
 
     # Retrieve all rows/papers from the table
-    cursor.execute(f"SELECT fulltext FROM {table_name};")
+    cursor.execute(f"SELECT fulltext FROM literature_fulltext;")
     rows = cursor.fetchall()
 
     # Iterate through the rows (which are papers) and extract text content
-    for row in rows:
-        row_text = []
-        for idx, value in enumerate(row):
-            if column_types[idx].lower() == 'text' and value is not None:
-                row_text.append(value)
-
-        if row_text:
-            text_content.extend(row_text)
+    text_content = [row[0] for row in rows if isinstance(row[0], str) and row[0] is not None]
 
     conn.close()
 
