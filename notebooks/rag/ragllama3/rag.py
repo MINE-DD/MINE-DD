@@ -303,19 +303,19 @@ def run_agentic_rag(question):
             documents_list.extend(event["documents"])
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run agentic RAG with a custom question.")
-    parser.add_argument(
-        "question", type=str, help="The question to ask the RAG system.",
-        required=False,
-        default="What is the role of enviromental factors in the prevalence of diarrheal pathogens?"
-        )
+#if __name__ == "__main__":
+#    parser = argparse.ArgumentParser(description="Run agentic RAG with a custom question.")
+#    parser.add_argument(
+#        "question", type=str, help="The question to ask the RAG system.",
+#        required=False,
+#        default="What is the role of enviromental factors in the prevalence of diarrheal pathogens?"
+#        )
 
     # Parse the argument
-    args = parser.parse_args()
+#    args = parser.parse_args()
 
     # Pass the question to the run_agentic_rag function
-    run_agentic_rag(args.question)
+#    run_agentic_rag(args.question)
 
 
 
