@@ -58,7 +58,7 @@ minedd-query --embeddings embeddings/papers_embeddings.pkl --questions questions
 
 ## Contributing
 
-If you want to contribute to the development of mine_dd,
+If you want to contribute to the development of MINE-DD,
 have a look at the [contribution guidelines](CONTRIBUTING.md).
 
 ## License
