@@ -1,186 +1,68 @@
-# see documentation, e.g.
-# - https://packaging.python.org/en/latest/specifications/declaring-project-metadata/#declaring-project-metadata
-# - https://setuptools.pypa.io/en/latest/userguide/pyproject_config.html
-# - https://www.python.org/dev/peps/pep-0621/
-
 [build-system]
-requires = ["setuptools>=64.0.0", "setuptools-scm", "wheel"]
+requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-authors = [
-    { name = "Jane Smith", email = "l.ootes@esciencecenter.nl" }
-]
-classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
-    "Intended Audience :: Developers",
-    "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: Apache Software License",
-    "Natural Language :: English",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-]
-dependencies = [
-    "asreview",
-    "nest_asyncio",
-    "pandas",
-    "llama_parse
-]
-description = "MINE-DD"
-keywords = [
-    "nlp",
-    "diarrhea",
-]
-license = {file = "LICENSE"}
-name = "mine_dd"
-readme = {file = "README.md", content-type = "text/markdown"}
-requires-python = ">=3.10"
+name = "minedd"
 version = "0.1.0"
+description = "Mining literature for diarrheal disease and climate factors relation"
+readme = "README.md"
+authors = [
+    {name = "Mine-DD Team", email = "your.email@example.com"}
+]
+license = {text = "Apache License 2.0"}
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "paper-qa>=5.5.0",
+    "pandas>=2.2.3",
+    "numpy>=1.26.4",
+    "tqdm>=4.67.1",
+    "openpyxl>=3.1.5",
+    "nest-asyncio>=1.6.0",
+    "litellm>=1.52.16",
+    "aiohttp>=3.11.7",
+    "openai>=1.55.0",
+    "pydantic>=2.10.1",
+    "tiktoken>=0.8.0",
+    "requests>=2.32.3",
+    "python-dotenv>=1.0.1"
+]
 
 [project.optional-dependencies]
 dev = [
-    "build",  # build is not only used in publishing (below), but also in the template's test suite
-    "bump-my-version",
-    "coverage [toml]",
-    "pytest",
-    "pytest-cov",
-    "ruff",
-    "sphinx",
-    "sphinx_rtd_theme",
-    "sphinx-autoapi",
-    "tox",
-    "myst_parser",
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "mypy>=1.0.0",
+    "build>=1.2.2"
 ]
-publishing = [
-    "build",
-    "twine",
-    "wheel",
-]
+
+# Reference information from CITATION.cff
+[tool.cff]
+message = "If you use this software, please cite it as below."
+preferred-citation-path = "./CITATION.cff"
 
 [project.urls]
-Repository = "https://github.com/MINE-DD/mine-dd"
-Issues = "https://github.com/MINE-DD/mine-dd/issues"
-Changelog = "https://github.com/MINE-DD/mine-dd/CHANGELOG.md"
+"Homepage" = "https://github.com/MINE-DD/MINE-DD"
+"Bug Tracker" = "https://github.com/MINE-DD/MINE-DD/issues"
+"Documentation" = "https://github.com/MINE-DD/MINE-DD/blob/main/README.md"
+"Source Code" = "https://github.com/MINE-DD/MINE-DD"
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
+[project.scripts]
+minedd-embed = "minedd.cli:embed_papers"
+minedd-query = "minedd.cli:query_papers_cli"
 
-[tool.coverage.run]
-branch = true
-source = ["mine_dd"]
-command_line = "-m pytest"
+[tool.black]
+line-length = 88
+target-version = ['py311']
 
 [tool.isort]
-lines_after_imports = 2
-force_single_line = 1
-no_lines_before = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
-known_first_party = "mine_dd"
-src_paths = ["mine_dd", "tests"]
-line_length = 120
-
-# For completeness, until we move to an src-based layout
-[tool.setuptools.packages.find]
-include = ["mine_dd*"]
-exclude = ["tests*"]
-
-[tool.tox]
-legacy_tox_ini = """
-[tox]
-envlist = py38,py39,py310,py311,py312
-skip_missing_interpreters = true
-[testenv]
-commands = pytest
-extras = dev
-"""
-
-[tool.ruff]
-# Enable Pyflakes `E` and `F` codes by default.
-select = [
-    "F",  # Pyflakes
-    "E",  # pycodestyle (error)
-    "W",    # pycodestyle (warning)
-    # "C90",  # mccabe
-    "I",    # isort
-    "D",    # pydocstyle
-    # "PL",   # Pylint
-    # "PLC",  # Convention
-    # "PLE",  # Error
-    # "PLR",  # Refactor
-    # "PLW",  # Warning
-
-]
-ignore = [
-    'D100',  # Missing module docstring
-    'D104',  # Missing public package docstring
-    # The following list excludes rules irrelevant to the Google style
-    'D203',
-    'D204',
-    'D213',
-    'D215',
-    'D400',
-    'D401',
-    'D404',
-    'D406',
-    'D407',
-    'D408',
-    'D409',
-    'D413',
-]
-
-# Allow autofix for all enabled rules (when `--fix`) is provided.
-fixable = ["A", "B", "C", "D", "E", "F", "I"]
-unfixable = []
-
-exclude = [
-    ".bzr",
-    ".direnv",
-    ".eggs",
-    ".git",
-    ".hg",
-    ".mypy_cache",
-    ".nox",
-    ".pants.d",
-    ".ruff_cache",
-    ".svn",
-    ".tox",
-    ".venv",
-    "__pypackages__",
-    "_build",
-    "buck-out",
-    "build",
-    "dist",
-    "node_modules",
-    "venv",
-    ".venv",
-    "scripts",
-]
-per-file-ignores = {}
-
-
-# Allow unused variables when underscore-prefixed.
-dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-
-target-version = "py39"
-line-length = 120
-
-[tool.ruff.isort]
-known-first-party = ["mine_dd"]
-force-single-line = true
-no-lines-before = ["future","standard-library","third-party","first-party","local-folder"]
-
-[tool.bumpversion]
-current_version = "0.1.0"
-
-[[tool.bumpversion.files]]
-filename = "mine_dd/__init__.py"
-
-[[tool.bumpversion.files]]
-filename = "pyproject.toml"
-
-[[tool.bumpversion.files]]
-filename = "CITATION.cff"
-
-[[tool.bumpversion.files]]
-filename = "docs/conf.py"
+profile = "black"
