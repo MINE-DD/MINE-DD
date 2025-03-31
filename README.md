@@ -31,6 +31,7 @@ Notes:
 - MINE-DD uses Ollama models locally
 - Default LLMs: ollama/llama3.1:405b (stored on [Snellius](https://www.surf.nl/en/services/compute/snellius-the-national-supercomputer)) or ollama/llama3.2:3b-instruct-fp16 (for laptop-friendly usage)
 - Default embeddings: ollama/mxbai-embed-large:latest
+- It uses Python >= 3.11
 
 ## Installation
 
