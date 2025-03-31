@@ -11,11 +11,26 @@
 
 ## MINE-DD
 
-Mining the past to protect against diarrheal disease in the future.
+(Mining the past to protect against Diarrheal Disease in the future) is a collaborative research project between the eScience Center and Amsterdam UMC. 
+The project focuses on addressing the global health challenge of diarrheal disease in the context of climate change.
 
 ## Description
 
-MINE-DD is a Python package that uses artificial intelligence to mine existing literature to describe how climate might change diarrheal diseases in the future. The package helps project the risk of diarrheal disease into the future, preparing communities and informing policy makers.
+MINE-DD is a Python package that leverages artificial intelligence to extract and synthesize insights about climate's impact on diarrheal diseases from scientific literature. 
+It enables researchers to efficiently query and analyze large collections of academic papers that would be impractical to read manually. Built on the [PaperQA2](https://github.com/neuracap/paperqa) framework, 
+the package implements an advanced question-answering system that provides detailed, citation-backed responses, ensuring that every insight is directly traceable to its original source materials.
+The package:
+
+- Takes a collection of scientific papers (PDFs)
+- Processes them to create embeddings (vector representations)
+- Allows users to query these papers with natural language questions
+- Returns answers with citations and context from the relevant papers as an excel file
+
+Notes:
+
+- MINE-DD uses Ollama models locally
+- Default LLMs: ollama/llama3.1:405b (stored on [Snellius](https://www.surf.nl/en/services/compute/snellius-the-national-supercomputer)) or ollama/llama3.2:3b-instruct-fp16 (for laptop-friendly usage)
+- Default embeddings: ollama/mxbai-embed-large:latest
 
 ## Installation
 
