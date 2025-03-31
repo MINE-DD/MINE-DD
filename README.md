@@ -9,24 +9,45 @@
 [![sonarcloud](https://github.com/MINE-DD/mine-dd/actions/workflows/sonarcloud.yml/badge.svg)](https://github.com/MINE-DD/mine-dd/actions/workflows/sonarcloud.yml)
 [![markdown-link-check](https://github.com/MINE-DD/mine-dd/actions/workflows/markdown-link-check.yml/badge.svg)](https://github.com/MINE-DD/mine-dd/actions/workflows/markdown-link-check.yml)
 
-## How to use mine_dd
+## MINE-DD
 
-MINE-DD
+Mining the past to protect against diarrheal disease in the future.
+
+## Description
+
+MINE-DD is a Python package that uses artificial intelligence to mine existing literature to describe how climate might change diarrheal diseases in the future. The package helps project the risk of diarrheal disease into the future, preparing communities and informing policy makers.
 
 ## Installation
 
-To install mine_dd from GitHub repository, do:
+To install MINE-DD from GitHub repository, do:
 
 ```console
-git clone git@github.com:MINE-DD/mine-dd.git
-cd mine-dd
+git clone git@github.com:MINE-DD/MINE-DD.git
+cd MINE-DD
 python -m pip install .
+```
+
+## Usage
+
+Creating embeddings from papers:
+
+```console
+minedd-embed --papers-dir papers/ --metadata metadata_papers.csv --output-dir embeddings/
+```
+
+Querying the papers:
+
+```console
+minedd-query --embeddings embeddings/papers_embeddings.pkl --questions questions.xlsx --output-dir results/
 ```
 
 ## Contributing
 
 If you want to contribute to the development of mine_dd,
 have a look at the [contribution guidelines](CONTRIBUTING.md).
+
+## License
+Apache License 2.0
 
 ## Credits
 
