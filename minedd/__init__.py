@@ -1,8 +1,12 @@
 """
 Mine-DD: Mining the past to protect against diarrheal disease in the future.
 
-This package leverages PaperQA to mine scientific literature for associations between
-climate-sensitive variables and pathogen-specific diarrheal disease incidence.
+This package provides tools for processing, embedding, and querying
+collections of scientific papers using PaperQA2 and large language models.
 """
 
 __version__ = "0.1.0"
+
+from minedd.query import Query
+from minedd.utils import configure_settings
+

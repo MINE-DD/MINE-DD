@@ -9,8 +9,6 @@ import pickle as pkl
 import os
 import pandas as pd
 import numpy as np
-from paperqa.settings import Settings, AgentSettings
-from paperqa import Docs
 
 from minedd.utils import configure_settings
 
@@ -26,6 +24,7 @@ class Query:
         self,
         model: str = "ollama/llama3.2:1b",
         embedding_model: str = "ollama/mxbai-embed-large:latest",
+        paper_directory: str = "data/",
         output_dir: str = "out"
     ):
         """
@@ -40,7 +39,7 @@ class Query:
         self.embedding_model = embedding_model
         self.output_dir = output_dir
         self.docs = None
-        self.settings = configure_settings(model, embedding_model)
+        self.settings = configure_settings(model, embedding_model, paper_directory)
 
         # create output directory if this doesn't exist
         os.makedirs(self.output_dir, exist_ok=True)
@@ -120,4 +119,76 @@ class Query:
             'raw_response': answer_obj
         }
         return result
+
+    def query_batch(
+        self,
+        questions: list[str] | pd.DataFrame,
+        save_individual: bool = True,
+        output_file: str | None = None
+    ) -> pd.DataFrame:
+        """
+        Query the documents with multiple questions.
+
+        Args:
+            questions: Either a list of question strings or a DataFrame with a 'question' column
+            save_individual: Whether to save individual query results
+            output_file: Path to save the complete results DataFrame
+
+        Returns:
+            DataFrame: A pandas DataFrame with questions and their answers
+
+        Raises:
+            ValueError: If embeddings haven't been loaded
+        """
+        if self.docs is None:
+            raise ValueError("No document embeddings loaded. Call load_embeddings() first.")
+
+        # Convert list to DataFrame if needed
+        if isinstance(questions, list):
+            questions_df = pd.DataFrame({'question': questions})
+        else:
+            questions_df = questions.copy()
+
+        # Get model name for filenames: Replace any characters that are invalid in filenames
+        model_name = self.model.split('/')[-1].replace(':', '_').replace('/', '_')
+
+        # Process each question
+        for q_idx in range(len(questions_df)):
+            print(f'Processing question {q_idx + 1}/{len(questions_df)}')
+
+            question = questions_df.loc[q_idx, 'question']
+            try:
+                answer_obj = self.docs.query(question, settings=self.settings)
+
+                # Store results in DataFrame
+                questions_df.at[
+                    q_idx, 'answer'] = answer_obj.formatted_answer if answer_obj.formatted_answer else np.nan
+                questions_df.at[q_idx, 'context'] = answer_obj.context if answer_obj.context else np.nan
+                questions_df.at[q_idx, 'citations'] = [
+                    context.text.doc.citation for context in answer_obj.contexts
+                    if hasattr(context.text.doc, 'citation')
+                ]
+                questions_df.at[q_idx, 'URL'] = [
+                    context.text.doc.url for context in answer_obj.contexts
+                    if hasattr(context.text.doc, 'url')
+                ]
+
+                # Save individual answer (if requested)
+                if save_individual:
+                    output_path = f"{self.output_dir}/answer_{q_idx}_{model_name}.pkl"
+                    with open(output_path, "wb") as f:
+                        pkl.dump(answer_obj, f)
+                    print(f"Answer {q_idx} saved to {output_path}")
+
+            except Exception as e:
+                print(f"Error processing question {q_idx}: {e}")
+
+        # Save complete results if requested
+        if output_file:
+            questions_df.to_excel(output_file, index=False)
+            print(f"Results saved to {output_file}")
+
+        return questions_df
+
+
 
