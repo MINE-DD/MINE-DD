@@ -79,12 +79,12 @@ class Query:
             if col not in questions.columns:
                 questions[col] = np.nan
                 # keys must contain a list to we need to change the type to object
-                questions[col] = questions[col].astype(object)
-            return questions
+            questions[col] = questions[col].astype(object)
+        return questions
 
     # I have divided the query into single and batch.
-    # query_single is designed for interactive usage where you want immediate answers -- perhaps making the interactions real time
-    # query_batch is instead for multiple questions, when these must be submitted as a job.sh with file saving
+    # query_single is designed for interactive usage where you want immediate answers (useful if making the interactions real time)
+    # query_batch is instead for multiple questions, when these must be submitted as a job.sh on Snellius with file saving
     def query_single(self, question: str) -> dict:
         """
         Query the documents with a single question.
