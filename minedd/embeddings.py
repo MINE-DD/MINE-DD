@@ -9,6 +9,8 @@ from pathlib import Path
 
 class Embeddings:
     """Class to process PDF papers and create or update embeddings based on them.
+    This class has an internal docs object that is used to store a list of PaperQA Doc objects.
+    Each Doc object contains internally the embeddings of chunks of a single paper plus metadata with provenance (n_docs == n_processed_papers).
 
     Attributes:
         output_embeddings_path (str): Path to save the output embeddings file.
@@ -27,7 +29,7 @@ class Embeddings:
         return f"Embeddings(output_embeddings_path={self.output_embeddings_path}, docs={self.docs})"
 
     def load_existing_embeddings(self, embeddings_path: str):
-        """Load existing embeddings from the specified path."""
+        """Load existing embeddings (List of Docs) from the specified path."""
         if os.path.exists(embeddings_path):
             with open(embeddings_path, "rb") as f:
                 self.docs = pkl.load(f)
@@ -36,6 +38,55 @@ class Embeddings:
         else:
             print(f"No existing embeddings found at {self.output_embeddings_path}")
             self.docs = None
+
+
+    def get_docs_details(self, verbose=False):
+        """Get the details of the documents in the embeddings.
+        This method retrieves the metadata of the documents stored in the embeddings.
+        It returns a DataFrame with the details of each document.
+        If verbose is True, it also prints the details of each document. 
+        """
+        def get_safe_key(doc_detail, key):
+            try:
+                return getattr(doc_detail, key)
+            except AttributeError:
+                return None
+
+        if self.docs is None:
+            print("No existing embeddings found.")
+            return {}
+
+        doc_details = []
+        for doc_key in self.docs.docs.keys():
+            doc_detail = self.docs.docs.get(doc_key)
+            if doc_detail:
+                details_dict = {
+                    "doc_key": get_safe_key(doc_detail, "dockey"),
+                    "key": get_safe_key(doc_detail, "key"),
+                    "docname":get_safe_key(doc_detail, "docname"),
+                    "title": get_safe_key(doc_detail, "title"),
+                    "authors": get_safe_key(doc_detail, "authors"),
+                    "year": get_safe_key(doc_detail, "year"),
+                    "journal": get_safe_key(doc_detail, "journal"),
+                    "volume": get_safe_key(doc_detail, "volume"),
+                    "pages": get_safe_key(doc_detail, "pages"),
+                    "doi": get_safe_key(doc_detail, "doi"),
+                    "url": get_safe_key(doc_detail, "url"),
+                    "file_location": get_safe_key(doc_detail, "file_location"),
+                    "citation_count": get_safe_key(doc_detail, "citation_count"),
+                    "source_quality": get_safe_key(doc_detail, "source_quality"),
+                }
+            doc_details.append(details_dict)
+            # Print for informative purposes
+            if verbose:
+                for k, v in details_dict.items():
+                    print(f"{k}: {v}")
+
+        # Convert to DataFrame for better visualization
+        details_df = pd.DataFrame(doc_details)
+        # details_dict = details_df.to_dict(orient='records')
+
+        return details_df
 
     def prepare_papers(self, papers_directory: Path):
         """Takes a Path object with the location of PDFs to process and returns a list of the valid papers in the directory.
