@@ -20,7 +20,7 @@ def query_command(args):
 
     # either process a single question or a batch of questions
     if args.questions_file:
-        engine.load_questions(args.questions_file)
+        questions = engine.load_questions(args.questions_file)
         output_file = f"{args.output_dir}/questions_with_answers_{args.llm.split('/')[-1].replace(':','_').replace('/','_')}.xlsx"
         engine.query_batch(questions, save_individual=True, output_file=output_file)
     elif args.question: # this is useful for debugging for example, or for real-time interactions
