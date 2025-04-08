@@ -11,6 +11,7 @@ import pandas as pd
 import numpy as np
 import pathlib
 import platform
+import re
 import subprocess
 import time
 
@@ -137,7 +138,7 @@ class Query:
                 check=True
             )
 
-            if model_name is result.stdout:
+            if model_name in result.stdout:
                 return True
 
             print(f"Model {model_name} not found. Attempting to pull it ...")
@@ -147,6 +148,7 @@ class Query:
                 text=True,
                 check=True
             )
+            print(f"Pull command output: {pull_result.stdout}")
 
             print(f"Successfully pulled {model_name}")
             return True
@@ -202,9 +204,16 @@ class Query:
             except Exception as e:
                 error_str = str(e)
                 # check if error is about model not found
-                if "model not found" in error_str.lower():
-                    model_name = self.model.split('/')[-1]
-                    print(f"Model not found error detected. Check model availability..")
+                if ("model not found" in error_str.lower() or
+                "OllamaException" in error_str or
+                "model '" in error_str and "' not found" in error_str):
+                    match = re.search(r"model '([^']+)' not found", error_str )
+                    if match:
+                        model_name = match.group(1)
+                    else:
+                        model_name = self.model.split('/')[-1]
+
+                    print("Model not found error detected. Check model availability..")
 
                     if self._ensure_model_available(model_name):
                         print(f"Model {model_name} is now available. Retrying query ({retries+1}/{max_retries})")
@@ -297,7 +306,7 @@ class Query:
                     error_str = str(e)
                     if "model not found" in error_str.lower() and not model_checked:
                         used_model = self.model.split('/')[-1]
-                        print(f"Model not found error detected. Check model availability..")
+                        print("Model not found error detected. Check model availability..")
 
                         if self._ensure_model_available(used_model):
                             model_checked = True
