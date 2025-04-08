@@ -11,6 +11,8 @@ import pandas as pd
 import numpy as np
 import pathlib
 import platform
+import subprocess
+import time
 
 from minedd.utils import configure_settings
 
@@ -107,15 +109,64 @@ class Query:
             questions[col] = questions[col].astype(object)
         return questions
 
+    # sometimes models are not available (i.e. must be downloaded first)
+    def _ensure_model_available(self, model_name=None):
+        """
+        Ensure that the model is available in Ollama.
+        If not, tries to pull it.
+
+        Args:
+            model_name (str, optional): Name of the model. If None, uses self.model
+
+        Returns:
+            bool: True if model is available, False otherwise
+
+        Raises:
+            RuntimeError: If pulling fails
+        """
+        if model_name is None:
+            # get model name from self.model
+            model_name = self.model.split('/')[-1] # format here always starts with "ollama/"
+
+        try:
+            # check that model is listed
+            result = subprocess.run(
+                ["ollama", "list"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+
+            if model_name is result.stdout:
+                return True
+
+            print(f"Model {model_name} not found. Attempting to pull it ...")
+            pull_result = subprocess.run(
+                ["ollama", "pull", model_name],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+
+            print(f"Successfully pulled {model_name}")
+            return True
+
+        except subprocess.CalledProcessError as e:
+            print(f"Error with Ollama: {e}")
+            print(f"Subprocess output: {e.stdout}")
+            print(f"Subprocess error: {e.stderr}")
+            return False
+
     # I have divided the query into single and batch.
     # query_single is designed for interactive usage where you want immediate answers (useful if making the interactions real time)
     # query_batch is instead for multiple questions, when these must be submitted as a job.sh on Snellius with file saving
-    def query_single(self, question: str) -> dict:
+    def query_single(self, question: str, max_retries: int = 2) -> dict:
         """
         Query the documents with a single question.
 
         Args:
             question: The question to ask
+            max_retries: Maximum number of retried if model loading fails
 
         Returns:
             dict: A dictionary containing the answer, context, and citations
@@ -126,30 +177,58 @@ class Query:
         if self.docs is None:
             raise ValueError('No document embeddings loaded. Call load_embeddings()')
 
-        answer_obj = self.docs.query(question, settings=self.settings)
+        retries = 0
+        while retries <= max_retries:
+            try:
+                answer_obj = self.docs.query(question, settings=self.settings)
 
-        result = {
-            'question': question,
-            # sometimes lists are empty -- added np.NaN to catch that
-            'answer': answer_obj.formatted_answer if answer_obj.formatted_answer else np.nan,
-            'context': answer_obj.context if answer_obj.context else np.nan,
-            'citations': [
-                context.text.doc.citation for context in answer_obj.contexts
-                if hasattr(context.text.doc, 'citation')
-            ],
-            'urls': [
-                context.text.doc.url for context in answer_obj.contexts
-                if hasattr(context.text.doc, 'url')
-            ],
-            'raw_response': answer_obj
-        }
-        return result
+                result = {
+                    'question': question,
+                    # sometimes lists are empty -- added np.NaN to catch that
+                    'answer': answer_obj.formatted_answer if answer_obj.formatted_answer else np.nan,
+                    'context': answer_obj.context if answer_obj.context else np.nan,
+                    'citations': [
+                        context.text.doc.citation for context in answer_obj.contexts
+                        if hasattr(context.text.doc, 'citation')
+                    ],
+                    'urls': [
+                        context.text.doc.url for context in answer_obj.contexts
+                        if hasattr(context.text.doc, 'url')
+                    ],
+                    'raw_response': answer_obj
+                }
+                return result
+
+            except Exception as e:
+                error_str = str(e)
+                # check if error is about model not found
+                if "model not found" in error_str.lower():
+                    model_name = self.model.split('/')[-1]
+                    print(f"Model not found error detected. Check model availability..")
+
+                    if self._ensure_model_available(model_name):
+                        print(f"Model {model_name} is now available. Retrying query ({retries+1}/{max_retries})")
+                        retries += 1
+                        time.sleep(2) # allows time for ollama background processes
+                        continue
+                    else:
+                        raise RuntimeError(f"Failed to pull {model_name}. Model not available.")
+
+            if retries >= max_retries:
+                print(f"Error after {retries} retries: {error_str}")
+                raise
+            print(f"Error: {error_str}")
+            print(f"Retrying ({retries + 1}/{max_retries})...")
+            retries += 1
+            time.sleep(2)
+
 
     def query_batch(
         self,
         questions: list[str] | pd.DataFrame,
         save_individual: bool = True,
-        output_file: str | None = None
+        output_file: str | None = None,
+        max_retries: int = 2
     ) -> pd.DataFrame:
         """
         Query the documents with multiple questions.
@@ -177,36 +256,66 @@ class Query:
         # Get model name for filenames: Replace any characters that are invalid in filenames
         model_name = self.model.split('/')[-1].replace(':', '_').replace('/', '_')
 
+        # Flag to track if we've already ensured model availability
+        model_checked = False
+
         # Process each question
         for q_idx in range(len(questions_df)):
             print(f'Processing question {q_idx + 1}/{len(questions_df)}')
 
             question = questions_df.loc[q_idx, 'question']
-            try:
-                answer_obj = self.docs.query(question, settings=self.settings)
 
-                # Store results in DataFrame
-                questions_df.at[
-                    q_idx, 'answer'] = answer_obj.formatted_answer if answer_obj.formatted_answer else np.nan
-                questions_df.at[q_idx, 'context'] = answer_obj.context if answer_obj.context else np.nan
-                questions_df.at[q_idx, 'citations'] = [
-                    context.text.doc.citation for context in answer_obj.contexts
-                    if hasattr(context.text.doc, 'citation')
-                ]
-                questions_df.at[q_idx, 'URL'] = [
-                    context.text.doc.url for context in answer_obj.contexts
-                    if hasattr(context.text.doc, 'url')
-                ]
+            retries = 0
+            while retries <= max_retries:
 
-                # Save individual answer (if requested)
-                if save_individual:
-                    output_path = f"{self.output_dir}/answer_{q_idx}_{model_name}.pkl"
-                    with open(output_path, "wb") as f:
-                        pkl.dump(answer_obj, f)
-                    print(f"Answer {q_idx} saved to {output_path}")
+                try:
+                    answer_obj = self.docs.query(question, settings=self.settings)
 
-            except Exception as e:
-                print(f"Error processing question {q_idx}: {e}")
+                    # Store results in DataFrame
+                    questions_df.at[
+                        q_idx, 'answer'] = answer_obj.formatted_answer if answer_obj.formatted_answer else np.nan
+                    questions_df.at[q_idx, 'context'] = answer_obj.context if answer_obj.context else np.nan
+                    questions_df.at[q_idx, 'citations'] = [
+                        context.text.doc.citation for context in answer_obj.contexts
+                        if hasattr(context.text.doc, 'citation')
+                    ]
+                    questions_df.at[q_idx, 'URL'] = [
+                        context.text.doc.url for context in answer_obj.contexts
+                        if hasattr(context.text.doc, 'url')
+                    ]
+
+                    # Save individual answer (if requested)
+                    if save_individual:
+                        output_path = f"{self.output_dir}/answer_{q_idx}_{model_name}.pkl"
+                        with open(output_path, "wb") as f:
+                            pkl.dump(answer_obj, f)
+                        print(f"Answer {q_idx} saved to {output_path}")
+                    break
+
+                except Exception as e:
+                    print(f"Error processing question {q_idx}: {e}")
+                    error_str = str(e)
+                    if "model not found" in error_str.lower() and not model_checked:
+                        used_model = self.model.split('/')[-1]
+                        print(f"Model not found error detected. Check model availability..")
+
+                        if self._ensure_model_available(used_model):
+                            model_checked = True
+                            print(f"Model {used_model} available. Retrying query ({retries+1}/{max_retries})")
+                            retries += 1
+                            time.sleep(2)
+                            continue
+                        else:
+                            questions_df.at[q_idx, 'answer'] = f"Error: model {used_model} not available"
+                            break
+                    if retries >= max_retries:
+                        print(f"Error after {retries} retries: {error_str}")
+                        questions_df.at[q_idx, 'answer'] = f"Error: {error_str}"
+                        break
+                    print(f"Error processing question {q_idx}: {e}")
+                    print(f"Retrying ({retries+1}/{max_retries})...")
+                    retries += 1
+                    time.sleep(2)
 
         # Save complete results if requested
         if output_file:
