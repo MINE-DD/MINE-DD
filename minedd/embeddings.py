@@ -5,18 +5,15 @@ from tqdm import tqdm
 from paperqa import Docs
 import pickle as pkl
 from pathlib import Path
-"""Class to handle embeddings and process papers.
 
-Attributes:
-    output_embeddings_path (str): Path to save the output embeddings file.
-    docs (Docs): Existing Docs object, to be able to manipulate it at Runtime.
 
-Methods:
-    __init__(output_embeddings_path, existing_docs): Initializes the Embeddings class.
-    prepare_papers(papers_directory): Prepares the list of papers in the given directory.
-    process_papers(settings, papers_directory, paper_list): Processes and adds papers to the Docs object.
-"""
 class Embeddings:
+    """Class to process PDF papers and create or update embeddings based on them.
+
+    Attributes:
+        output_embeddings_path (str): Path to save the output embeddings file.
+        docs (Docs, optional): Existing Docs object, to be able to manipulate it at Runtime.
+    """
     def __init__(self,
                  output_embeddings_path: str = "embeddings.pkl",
                  existing_docs: Docs = None,
@@ -41,15 +38,19 @@ class Embeddings:
             self.docs = None
 
     def prepare_papers(self, papers_directory: Path):
-        """_summary_
+        """Takes a Path object with the location of PDFs to process and returns a list of the valid papers in the directory.
 
         Args:
-            papers_directory (Path): _description_
+            papers_directory (Path): location of papers in PDF format.
 
         Returns:
-            _type_: _description_
+            ordered_file_list (str): list of the valid paper names in the given directory.
         """
-        file_list = os.listdir(papers_directory)
+        try:
+            file_list = os.listdir(papers_directory)
+        except FileNotFoundError:
+            print(f"WARNING: Directory {papers_directory} not found.")
+            return []
         path_files = [os.path.join(papers_directory, f) for f in file_list]
 
         path_df = pd.DataFrame(
@@ -69,13 +70,18 @@ class Embeddings:
 
         return ordered_file_list
 
-    def process_papers(self, settings, papers_directory: Path, paper_list: list[str] = None):
-        """Process and add papers to the Docs object."""
+    def process_papers(self, settings,  papers_directory: Path, paper_list: list[str]):
+        """Transforms a list of valid PDFs into Doc Embeddings.
+        The PDFs are chunked, processed and the embeddings are created using the provided settings.
+        The resulting embeddings are saved to the specified output path.
 
-        if paper_list is not None:
-            ordered_file_list = paper_list
-        else:
-            ordered_file_list = self.prepare_papers(papers_directory)
+        Args:
+            settings (Settings): PaperQA settings object, describing the LLMs hyperparameters.
+            papers_directory (Path): location of directory containing the papers in PDF format. Needed for metadata.
+            paper_list (list[str]): List of valid PDFs containing the papers that will be transformed into Embeddings.
+        """
+
+        ordered_file_list = paper_list
 
         if self.docs is not None:
             print("Adding new docs to the existing Embeddings.")
