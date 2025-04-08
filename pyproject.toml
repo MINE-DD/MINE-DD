@@ -73,3 +73,6 @@ target-version = ['py311']
 
 [tool.isort]
 profile = "black"
+
+[tool.ruff]
+exclude = ["notebooks", "out", "tests"]
