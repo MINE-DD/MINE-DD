@@ -23,6 +23,7 @@ license = {file = "LICENSE"}
 
 requires-python = ">=3.11"
 dependencies = [
+    "fhaviary>=0.18.3",
     "paper-qa==5.5.0",
     "pandas>=2.2.3",
     "numpy>=1.26.4",
