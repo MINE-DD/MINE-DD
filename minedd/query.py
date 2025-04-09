@@ -142,7 +142,8 @@ class Query:
                 return True
 
             print(f"Model {model_name} not found. Attempting to pull it ...")
-            pull_result = subprocess.run(
+            # Run the pull command without assigning the unused result
+            subprocess.run(
                 ["ollama", "pull", model_name],
                 capture_output=True,
                 text=True,
