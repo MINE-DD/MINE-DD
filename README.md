@@ -59,6 +59,34 @@ python -m pip install .
 python -m pip install -e ".[dev]"
 ```
 
+### Testing
+
+The project includes two types of tests:
+
+1. **Standard Tests**: These run in CI environments (GitHub Actions) and don't require Ollama or GPU access.
+
+   ```console
+   # Run all standard tests
+   pytest
+   
+   # Run specific test files
+   pytest tests/test_utils.py tests/test_cli.py
+   ```
+
+2. **Integration Tests**: These test the full functionality including LLM queries with Ollama, requiring a local environment with Ollama running.
+
+   ```console
+   # Enable integration tests by setting SKIP_OLLAMA_TESTS=False in tests/test_query_integration.py
+   # Then run:
+   pytest -m integration
+   ```
+
+Integration tests are automatically skipped in CI environments and by default are also skipped locally (to avoid unexpected failures). To run them, you need to:
+
+1. Ensure Ollama is running (`ollama serve`)
+2. Set `SKIP_OLLAMA_TESTS = False` in `tests/test_query_integration.py`
+3. Run with the integration marker: `pytest -m integration`
+
 
 ## Usage
 

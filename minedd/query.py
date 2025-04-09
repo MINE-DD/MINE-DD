@@ -148,7 +148,6 @@ class Query:
                 text=True,
                 check=True
             )
-            print(f"Pull command output: {pull_result.stdout}")
 
             print(f"Successfully pulled {model_name}")
             return True
