@@ -35,8 +35,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools
           python -m pip install .[dev,publishing]
-      - name: Run unit tests
-        run: python -m pytest -v
+      - name: Run unit tests (excluding integration tests)
+        run: python -m pytest -v -m "not integration"
+        env:
+          CI: "true"
       - name: Verify that we can build the package
         run: python -m build
 
@@ -47,10 +49,10 @@ jobs:
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
-      - name: Set up Python 3.9
+      - name: Set up Python 3.12
         uses: actions/setup-python@v3
         with:
-          python-version: 3.9
+          python-version: 3.12
       - name: Python info
         shell: bash -e {0}
         run: |
@@ -61,4 +63,4 @@ jobs:
           python -m pip install --upgrade pip setuptools
           python -m pip install .[dev,publishing]
       - name: Check style against standards using ruff
-        run: ruff .
+        run: ruff check .

@@ -24,38 +24,104 @@ The package:
 - Takes a collection of scientific papers (PDFs)
 - Processes them to create embeddings (vector representations)
 - Allows users to query these papers with natural language questions
-- Returns answers with citations and context from the relevant papers as an excel file
+- Returns answers with citations and context from the relevant papers
 
 Notes:
 
 - MINE-DD uses Ollama models locally
-- Default LLMs: ollama/llama3.1:405b (stored on [Snellius](https://www.surf.nl/en/services/compute/snellius-the-national-supercomputer)) or ollama/llama3.2:3b-instruct-fp16 (for laptop-friendly usage)
+- Default LLMs: ollama/llama3.2:1b (for laptop-friendly usage)
 - Default embeddings: ollama/mxbai-embed-large:latest
 - It uses Python >= 3.11
 
 ## Installation
 
-To install MINE-DD from GitHub repository, do:
+### Requirements
+
+- Python 3.11 or higher
+- [Ollama](https://ollama.ai/) installed locally for running LLMs and embeddings
+
+### Installation Steps
+
+1. Clone the repository:
 
 ```console
 git clone git@github.com:MINE-DD/MINE-DD.git
 cd MINE-DD
-python -m pip install .
 ```
+
+2. Install the package:
+
+```console
+# Standard installation
+python -m pip install .
+
+# Development installation
+python -m pip install -e ".[dev]"
+```
+
+### Testing
+
+The project includes two types of tests:
+
+1. **Standard Tests**: These run in CI environments (GitHub Actions) and don't require Ollama or GPU access.
+
+   ```console
+   # Run all standard tests
+   pytest
+   
+   # Run specific test files
+   pytest tests/test_utils.py tests/test_cli.py
+   ```
+
+2. **Integration Tests**: These test the full functionality including LLM queries with Ollama, requiring a local environment with Ollama running.
+
+   ```console
+   # Enable integration tests by setting SKIP_OLLAMA_TESTS=False in tests/test_query_integration.py
+   # Then run:
+   pytest -m integration
+   ```
+
+Integration tests are automatically skipped in CI environments and by default are also skipped locally (to avoid unexpected failures). To run them, you need to:
+
+1. Ensure Ollama is running (`ollama serve`)
+2. Set `SKIP_OLLAMA_TESTS = False` in `tests/test_query_integration.py`
+3. Run with the integration marker: `pytest -m integration`
+
 
 ## Usage
 
-Creating embeddings from papers:
+### Before Using MINE-DD
+
+Make sure Ollama is running in the background:
 
 ```console
-minedd-embed --papers-dir papers/ --metadata metadata_papers.csv --output-dir embeddings/
+ollama serve
 ```
 
-Querying the papers:
+### Querying Papers
+
+Use the `minedd-query` command to ask questions about your document collection:
 
 ```console
-minedd-query --embeddings embeddings/papers_embeddings.pkl --questions questions.xlsx --output-dir results/
+minedd-query --embeddings embeddings/papers_embeddings.pkl --questions_file questions.xlsx --output_dir results/
 ```
+
+or for a single question:
+
+```console
+minedd-query --embeddings embeddings/papers_embeddings.pkl --question "What is the relationship between climate change and diarrheal disease?"
+```
+
+#### Available Parameters
+
+- `--embeddings`: Path to the embeddings pickle file (required)
+- `--questions_file`: Path to Excel file with questions
+- `--question`: Single question to ask
+- `--llm`: LLM model to use (default: 'ollama/llama3.2:1b')
+- `--embedding_model`: Embedding model (default: 'ollama/mxbai-embed-large:latest')
+- `--paper_directory`: Directory with paper files (default: 'data/')
+- `--output_dir`: Directory to save outputs (default: 'out')
+- `--max_retries`: Retries for model loading failures (default: 2)
 
 ## Contributing
 
@@ -63,7 +129,11 @@ If you want to contribute to the development of MINE-DD,
 have a look at the [contribution guidelines](CONTRIBUTING.md).
 
 ## License
-Apache License 2.0
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 
 ## Credits
 
