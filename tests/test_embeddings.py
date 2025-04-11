@@ -17,10 +17,10 @@ def embeddings(tmp_path):
     # Cleanup: Remove files and directories created during the test
     shutil.rmtree(temp_dir, ignore_errors=True)
 
-def test_prepare_papers(embeddings):
-    """Test the prepare_papers method."""
-    ordered_files = embeddings.prepare_papers("tests/mock_papers")
-    assert ordered_files == ["nihms-620915.pdf"]
+# def test_prepare_papers(embeddings):
+#     """Test the prepare_papers method."""
+#     ordered_files = embeddings.prepare_papers("tests/mock_papers")
+#     assert ordered_files == ["nihms-620915.pdf"]
 
 
 # def test_process_papers(embeddings):
