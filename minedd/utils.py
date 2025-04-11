@@ -3,9 +3,14 @@ Utility functions for the MINEDD package.
 
 """
 
-from paperqa.settings import Settings, AgentSettings
+from paperqa.settings import Settings, AgentSettings, ParsingSettings
 
-def configure_settings(model_type: str, embeddings_model: str, paper_dir: str) -> Settings:
+def configure_settings(model_type: str, 
+                        embeddings_model: str, 
+                        paper_dir: str,
+                        chunk_size: int = 2500,
+                        overlap: int = 250,
+                        ) -> Settings:
     """
     Configure PaperQA settings for use with local LLMs
 
@@ -53,6 +58,10 @@ def configure_settings(model_type: str, embeddings_model: str, paper_dir: str) -
             agent_llm=model_type,
             agent_llm_config=local_llm_config,
             return_paper_metadata=True
+        ),
+        parsing=ParsingSettings(
+            chunk_size=chunk_size,
+            overlap=overlap
         )
     )
     return settings
