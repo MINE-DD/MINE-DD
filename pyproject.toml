@@ -64,7 +64,7 @@ Changelog = "https://github.com/MINE-DD/MINE-DD/CHANGELOG.md"
 
 
 [project.scripts]
-minedd-query = "minedd.cli:main"
+minedd = "minedd.cli:main"
 
 [tool.black]
 line-length = 88

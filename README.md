@@ -98,18 +98,35 @@ Make sure Ollama is running in the background:
 ollama serve
 ```
 
-### Querying Papers
+### Creating Paper Embeddings
 
-Use the `minedd-query` command to ask questions about your document collection:
+Use the `minedd embed` command to create embeddings based on your document collection:
 
 ```console
-minedd-query --embeddings embeddings/papers_embeddings.pkl --questions_file questions.xlsx --output_dir results/
+minedd embed --paper_directory "/path/to/papers_minedd/" --embeddings_filename my-embeddings.pkl
+```
+
+#### Available Parameters
+
+- `--embeddings_filename`: Name the embeddings pickle file where the index is saved
+- `--output_dir`: Directory to save the embeddings pkl (default: 'out')
+- `--embedding_model`: Embedding model (default: 'ollama/mxbai-embed-large:latest')
+- `--paper_directory`: Directory with paper files (default: 'data/')
+- `--augment_existing`: If True it will add new documents to the existing pkl file provided. Otherwise it creates the pkl file from scratch.
+
+
+### Querying Papers
+
+Use the `minedd query` command to ask questions about your document collection:
+
+```console
+minedd query --embeddings embeddings/papers_embeddings.pkl --questions_file questions.xlsx --output_dir results/
 ```
 
 or for a single question:
 
 ```console
-minedd-query --embeddings embeddings/papers_embeddings.pkl --question "What is the relationship between climate change and diarrheal disease?"
+minedd query --embeddings embeddings/papers_embeddings.pkl --question "What is the relationship between climate change and diarrheal disease?"
 ```
 
 #### Available Parameters
