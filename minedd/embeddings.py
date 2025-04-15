@@ -4,7 +4,7 @@ from difflib import get_close_matches
 from tqdm import tqdm
 from paperqa import Docs
 import pickle as pkl
-from minedd.utils import configure_settings
+from minedd.utils import configure_settings, safely_load_pickle_file
 
 
 class Embeddings:
@@ -44,8 +44,7 @@ class Embeddings:
     def load_existing_embeddings(self, embeddings_path: str):
         """Load existing embeddings (List of Docs) from the specified path."""
         if os.path.exists(embeddings_path):
-            with open(embeddings_path, "rb") as f:
-                self.docs = pkl.load(f)
+            self.docs = safely_load_pickle_file(embeddings_path)
             self.output_embeddings_path = embeddings_path
             print(f"Loaded existing embeddings from {embeddings_path}")
         else:
