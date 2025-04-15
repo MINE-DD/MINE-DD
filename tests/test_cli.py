@@ -226,7 +226,6 @@ def test_embed_command(mock_args_embed_papers, capsys):
     captured = capsys.readouterr()
     assert "Found 2 PDF files" in captured.out
 
-    
 
 @patch('minedd.cli.argparse.ArgumentParser.parse_args')
 @patch('minedd.cli.embed_command')
