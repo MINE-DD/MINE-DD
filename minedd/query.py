@@ -9,13 +9,11 @@ import pickle as pkl
 import os
 import pandas as pd
 import numpy as np
-import pathlib
-import platform
 import re
 import subprocess
 import time
 
-from minedd.utils import configure_settings
+from minedd.utils import configure_settings, safely_load_pickle_file
 
 class Query:
     """
@@ -66,29 +64,7 @@ class Query:
         if not os.path.exists(pickled_path):
             raise FileNotFoundError(f'File {pickled_path} not found')
 
-        # Windows users do not support PosixPath (whose references are contained in pickle files)
-        # so when unpickling the embeddings, Python tries to instantiate these PosixPath objects, but fails
-        # since they're not supported
-
-        # one way to fix this is to point the PosixPath point to WindowsPath temporarily during unpickling.
-        # from: "https://stackoverflow.com/questions/57286486/i-cant-load-my-model-because-i-cant-put-a-posixpath"
-
-        system = platform.system()
-
-        if system == "Windows":
-            # Save original PosixPath
-            temp = pathlib.PosixPath
-
-            try:
-                pathlib.PosixPath = pathlib.WindowsPath  # point to the windows path
-                with open(pickled_path, 'rb') as f:
-                    self.docs = pkl.load(f)
-            finally:
-                # restore the original posixpath
-                pathlib.PosixPath = temp
-        else:
-            with open(pickled_path, 'rb') as f:
-                self.docs = pkl.load(f)
+        self.docs = safely_load_pickle_file(pickled_path)
 
         return self
 
