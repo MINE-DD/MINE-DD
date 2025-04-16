@@ -1,0 +1,6 @@
+﻿minedd
+======
+
+.. automodule:: minedd
+
+   
