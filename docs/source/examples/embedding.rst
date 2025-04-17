@@ -8,6 +8,15 @@ Basic Embedding Example
 
 The following example shows how to create embeddings for a collection of papers:
 
+Note that to work with jupyter notebooks one needs to install `nest_asyncio` 
+and import it into the notebook as follows:
+
+.. code-block:: python
+   %pip install nest_asyncio 
+   
+   import nest_asyncio
+   nest_asyncio.apply()
+   
 1. Load Embeddings object
 
 .. code-block:: python
