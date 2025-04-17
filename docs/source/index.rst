@@ -42,5 +42,5 @@ Contents
    :maxdepth: 1
    :caption: Development
 
-   https://github.com/MINE-DD/MINE-DD/blob/main/CONTRIBUTING.md
-   https://github.com/MINE-DD/MINE-DD/blob/main/CHANGELOG.md
+   `CONTRIBUTING.md <https://github.com/MINE-DD/MINE-DD/blob/main/CONTRIBUTING.md>`_
+   `CHANGELOG.md <https://github.com/MINE-DD/MINE-DD/blob/main/CHANGELOG.md>`_

@@ -35,9 +35,6 @@ Start by importing the ``Query`` class and setting up your environment:
    PAPERS_DIRECTORY = "path/to/your/papers/"
    OUTPUT_DIR = "out"
    
-   # Create output directory if it doesn't exist
-   os.makedirs(OUTPUT_DIR, exist_ok=True)
-   
    # Initialize the Query object
    query = Query(
        model=MODEL,
