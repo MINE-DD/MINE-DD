@@ -36,6 +36,7 @@ Contents
    :caption: Examples
 
    examples/embedding
+   examples/query
    
 .. toctree::
    :maxdepth: 1

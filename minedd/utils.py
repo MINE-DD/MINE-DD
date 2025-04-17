@@ -8,8 +8,8 @@ import platform
 import pathlib
 from paperqa.settings import Settings, AgentSettings, ParsingSettings
 
-def configure_settings(model_type: str, 
-                        embeddings_model: str, 
+def configure_settings(model_type: str,
+                        embeddings_model: str,
                         paper_dir: str,
                         chunk_size: int = 2500,
                         overlap: int = 250,
@@ -45,7 +45,8 @@ def configure_settings(model_type: str,
                 },
                 "parsing": {
                     "use_doc_details": True
-                }
+                },
+                "prompts" : {"use_json": False}
             }
         ]
     }
@@ -65,7 +66,8 @@ def configure_settings(model_type: str,
         parsing=ParsingSettings(
             chunk_size=chunk_size,
             overlap=overlap
-        )
+        ),
+        prompts={"use_json": False}
     )
     return settings
 
