@@ -1,4 +1,9 @@
 # Configuration file for the Sphinx documentation builder.
+import os
+import sys
+
+# Add the project root directory to the Python path
+sys.path.insert(0, os.path.abspath('../..'))
 
 # -- Project information
 
@@ -17,6 +22,10 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'sphinx.ext.intersphinx',
+    'sphinx.ext.napoleon',  # Support for NumPy and Google style docstrings
+    'sphinx.ext.viewcode',  # Add links to view source code
+    'sphinx_autodoc_typehints',  # Better support for type hints
+    'myst_parser',  # Markdown support
 ]
 
 intersphinx_mapping = {
@@ -36,3 +45,10 @@ epub_show_urls = 'footnote'
 
 # Enable autosummary
 autosummary_generate = True
+
+# autodoc settings
+autodoc_default_options = {
+    'members': True,
+    'undoc-members': True,
+    'show-inheritance': True,
+}
