@@ -8,7 +8,7 @@
 
 ## MINE-DD
 
-(Mining the past to protect against Diarrheal Disease in the future) is a collaborative research project between the eScience Center and Amsterdam UMC. 
+(Mining the past to protect against Diarrheal Disease in the future) is a collaborative research project between the eScience Center, the University of Amsterdam (UvA) and Amsterdam UMC. 
 The project focuses on addressing the global health challenge of diarrheal disease in the context of climate change.
 
 ## Description
