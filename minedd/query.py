@@ -256,18 +256,33 @@ class Query:
                 try:
                     answer_obj = self.docs.query(question, settings=self.settings)
 
+
                     # Store results in DataFrame
-                    questions_df.at[
+                    questions_df['answer'] = None
+                    questions_df['answer'] = questions_df['answer'].astype(str)
+                    questions_df.loc[
                         q_idx, 'answer'] = answer_obj.formatted_answer if answer_obj.formatted_answer else np.nan
-                    questions_df.at[q_idx, 'context'] = answer_obj.context if answer_obj.context else np.nan
-                    questions_df.at[q_idx, 'citations'] = [
+
+                    questions_df['context'] = None
+                    questions_df['context'] = questions_df['context'].astype(str)
+                    questions_df.loc[q_idx, 'context'] = answer_obj.context if answer_obj.context else np.nan
+
+                    questions_df['citations'] = None
+                    questions_df['citations'] = questions_df['citations'].astype(str)
+                    citations = [
                         context.text.doc.citation for context in answer_obj.contexts
                         if hasattr(context.text.doc, 'citation')
                     ]
-                    questions_df.at[q_idx, 'URL'] = [
+                    questions_df.loc[q_idx, 'citations'] = ''.join(set(citations)) if citations else np.nan
+
+                    questions_df['URL'] = None
+                    questions_df['URL'] = questions_df['URL'].astype(str)
+                    urls = [
                         context.text.doc.url for context in answer_obj.contexts
                         if hasattr(context.text.doc, 'url')
                     ]
+                    questions_df.at[q_idx, 'URL'] = 'None' if set(urls) == {None} else ''.join(
+                        [str(x) for x in set(urls)])
 
                     # Save individual answer (if requested)
                     if save_individual:
