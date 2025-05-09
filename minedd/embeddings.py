@@ -2,7 +2,6 @@ import os
 import re
 import pandas as pd
 from dataclasses import dataclass
-from difflib import get_close_matches
 from tqdm import tqdm
 from paperqa import Docs
 import pickle as pkl
