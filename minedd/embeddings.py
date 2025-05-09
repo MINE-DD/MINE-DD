@@ -1,10 +1,37 @@
 import os
+import re
 import pandas as pd
+from dataclasses import dataclass
 from difflib import get_close_matches
 from tqdm import tqdm
 from paperqa import Docs
 import pickle as pkl
 from minedd.utils import configure_settings, safely_load_pickle_file
+
+@dataclass
+class DocumentChunk:
+    """Class to represent a chunk of a document.
+    This class is used to store the text and embedding of a chunk of a document.
+    It also contains metadata with provenance information.
+
+    Attributes:
+        text (str): The text of the chunk.
+        docname (str): The name of the document the chunk belongs to.
+        dockey (str): The key of the document the chunk belongs to.
+        chunkname (str): The name of the chunk.
+        pages (list[int]): The page numbers of the chunk.
+        embedding (list[float], optional): The embedding of the chunk. Defaults to None.
+    """
+    text: str
+    docname: str
+    dockey: str
+    chunkname: str
+    pages: list[int]
+    embedding: list[float] = None
+    
+    def __repr__(self):
+        embedding = self.embedding[:5] if self.embedding is not None else []
+        return f"DocumentChunk(text={self.text[:30]}, embedding={embedding}..., docname={self.docname}, dockey={self.dockey}, chunkname={self.chunkname}, pages={self.pages})"
 
 
 class Embeddings:
@@ -39,7 +66,9 @@ class Embeddings:
 
 
     def __repr__(self):
-        return f"Embeddings(output_embeddings_path={self.output_embeddings_path}, docs={len(self.docs)})"
+        doc_len = len(self.docs.docs) if self.docs else 0
+        chunk_len = len(self.docs.texts) if self.docs else 0
+        return f"Embeddings(output_embeddings_path={self.output_embeddings_path}, total_docs={doc_len}, total_chunks={chunk_len})"
 
     def load_existing_embeddings(self, embeddings_path: str):
         """Load existing embeddings (List of Docs) from the specified path."""
@@ -115,21 +144,9 @@ class Embeddings:
         except FileNotFoundError:
             print(f"WARNING: Directory {self.paper_directory} not found.")
             return []
-        path_files = [os.path.join(self.paper_directory, f) for f in file_list]
 
-        path_df = pd.DataFrame(
-            {
-                "PDF Name": file_list,
-                "Path": path_files
-            }
-        )
-        # Order file list by matching names
-        ordered_file_list = []
-        for title in path_df['PDF Name']:
-            closest_match = get_close_matches(title, file_list, n=1)
-            ordered_file_list.append(closest_match[0] if closest_match else None)
         # Drop None values from the ordered list if necessary
-        ordered_file_list = [file for file in ordered_file_list if file is not None]
+        ordered_file_list = [file for file in file_list if ".pdf" in file]
         return ordered_file_list
 
     def process_papers(self, paper_list: list[str]):
@@ -151,10 +168,11 @@ class Embeddings:
         
         # Process each paper and add it to a PaperQA Docs object
         for i, doc in tqdm(enumerate(paper_list), total=len(paper_list), desc="Processing papers:", unit="paper"):
+            doc_title = re.sub(" +", " ", doc.strip(".pdf").replace("_", " ").replace("-", " "))
             try:
                 docs.add(
                         path=str(os.path.join(self.paper_directory, doc)),
-                        docname=doc,
+                        docname=doc_title,
                         settings=self.settings
                 )
                 print(f"Correctly loaded {doc}")
@@ -167,3 +185,43 @@ class Embeddings:
         with open(self.output_embeddings_path, "wb") as f:
             pkl.dump(docs, f)
         print(f"Docs object saved to {self.output_embeddings_path}")
+    
+    def get_document_chunks(self, docname: str, include_embeddings: bool = False, pages: list[int] = None):
+        """Get the chunks of a document by its key.
+        Args:
+            docname (str): The key of the document to retrieve chunks from.
+            include_embeddings (bool, optional): Whether to include the chunk vector in the returned chunks. Defaults to False.
+            pages (list[int], optional): List of page numbers whose chunks will be returned (inclusive). If None, all chunks are returned.
+        Returns:
+            list: A list of chunks from the specified document.
+        """
+        if self.docs is None:
+            print("No existing embeddings found.")
+            return []
+
+        if docname not in self.docs.docnames:
+            print(f"Document with key {docname} not found in the embeddings.")
+            return []
+
+        chunks = []
+        wanted_pages = set(pages) if pages is not None else None
+        for doc_chunk in self.docs.texts:
+            if doc_chunk.doc.docname == docname:
+                page_nums = doc_chunk.name.split()[-1] if doc_chunk.name else "0"
+                embedding = doc_chunk.embedding if include_embeddings else None
+                if wanted_pages is not None:
+                    # Check if the chunk's page number is in the specified range
+                    chunk_page_ints = set([int(p) for p in page_nums.split("-")])
+                    if len(wanted_pages.intersection(chunk_page_ints)) == 0:
+                        continue
+                # If pages is None, include all chunks
+                chunks.append(DocumentChunk(
+                    text=doc_chunk.text,
+                    embedding=embedding,
+                    docname=doc_chunk.doc.docname,
+                    dockey=doc_chunk.doc.dockey,
+                    chunkname=doc_chunk.name,
+                    pages=page_nums
+                ))
+
+        return chunks
