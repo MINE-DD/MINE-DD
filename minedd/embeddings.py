@@ -74,9 +74,9 @@ class Embeddings:
         if os.path.exists(embeddings_path):
             self.docs = safely_load_pickle_file(embeddings_path)
             self.output_embeddings_path = embeddings_path
-            print(f"Loaded existing embeddings from {embeddings_path}")
+            print(f"Loaded existing embeddings from {self.output_embeddings_path}")
         else:
-            print(f"No existing embeddings found at {self.output_embeddings_path}")
+            print(f"No existing embeddings found at {embeddings_path}")
             self.docs = None
 
 
