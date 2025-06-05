@@ -4,8 +4,7 @@ from marker.converters.pdf import PdfConverter
 from marker.models import create_model_dict
 from marker.output import text_from_rendered
 from marker.config.parser import ConfigParser
-from marker.util import strings_to_classes, classes_to_strings
-from langchain_text_splitters.character import RecursiveCharacterTextSplitter
+from langchain_text_splitters.character import CharacterTextSplitter, RecursiveCharacterTextSplitter
 from langchain_text_splitters.sentence_transformers import SentenceTransformersTokenTextSplitter
 
 

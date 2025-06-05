@@ -1,8 +1,4 @@
-from typing import Union
-
 from fastapi import FastAPI
-from pydantic import BaseModel
-
 from minedd.pdf_manager import DcoumentPDF
 
 app = FastAPI()
