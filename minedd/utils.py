@@ -35,7 +35,7 @@ def configure_settings(model_type: str,
                     # "api_base": "http://0.0.0.0:11434",
                 },
                 "answer": {
-                    "evidence_k": 40,
+                    "evidence_k": 20,
                     "evidence_detailed_citations": True,
                     "evidence_summary_length": "about 100 words",
                     "answer_max_sources": 10,

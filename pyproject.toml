@@ -4,6 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 authors = [
+    { name = "Angel Daza", email = "j.daza@esciencecenter.nl" },
     { name = "Eva Viviani", email = "e.viviani@esciencecenter.nl" }
 ]
 classifiers = [
