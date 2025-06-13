@@ -1,7 +1,5 @@
-from pathlib import Path
 import os
 import argparse
-import json
 from minedd.document import DocumentPDF
 
 def extract_content_from_pdfs(directory: str, model_llm: str):
