@@ -37,6 +37,7 @@ def extract_content_from_pdfs(directory: str, model_llm: str, mode:str, skip_exi
             elif os.path.exists(pdf_json_path):
                 print(f"Loading Document content available at {pdf_json_path}...")
                 pdf_paper = DocumentPDF.from_json(pdf_json_path)
+                pdf_paper.pdf_path = pdf_path # Rewrite path to current one
             else:
                 # Create a DocumentPDF object and load the PDF
                 pdf_paper = DocumentPDF(pdf_path, marker_config=marker_config)
