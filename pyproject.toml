@@ -37,7 +37,14 @@ dependencies = [
     "pydantic>=2.10.1",
     "tiktoken>=0.8.0",
     "requests>=2.32.3",
-    "python-dotenv>=1.0.1"
+    "python-dotenv>=1.0.1",
+    "langchain>=0.3.25",
+    "langchain-community>=0.3.24",
+    "langgraph>=0.4.8",
+    "gmft>=0.4.1",
+    "marker-pdf>=1.6.2",
+    "ollama==0.3.3",
+    "httpx==0.27.2"
 ]
 
 [project.optional-dependencies]
