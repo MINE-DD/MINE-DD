@@ -24,7 +24,7 @@ class DocumentPDF:
         self.pdf_path = pdf_path
         self.markdown = None
         self.json_content = None
-        self.tables = None
+        self.tables = []
         # Configure Marker to use Ollama as the LLM service
         if marker_config is None:
             self.marker_config = {
@@ -57,6 +57,10 @@ class DocumentPDF:
         except FileNotFoundError:
             print(f"File not found: {json_path}. Returning None")
             return None
+        except json.decoder.JSONDecodeError:
+            print(f"File {json_path} is empty or not a valid JSON! Returning None")
+            return None
+            
 
         # try:
         doc = cls(content["original_path"])
@@ -131,7 +135,7 @@ class DocumentPDF:
                 
                 docs_dict["sections_content"][section_title].append(row)
             docs = docs_dict
-            self.json = docs_dict
+            self.json_content = docs_dict
         elif return_as_dict:
             docs_dict = {
                 "title": docs[0].metadata.get("paper_title", "NoTitle"),
@@ -151,7 +155,7 @@ class DocumentPDF:
                 }
                 docs_dict["chunks"].append(row)
             docs = docs_dict
-            self.json = docs_dict
+            self.json_content = docs_dict
         return docs
 
 
@@ -192,7 +196,7 @@ class DocumentPDF:
             "original_path": self.pdf_path,
             "markdown": self.markdown,
             "text_chunks": self.json_content,
-            "tables_as_json": [] if (len(self.tables) == 0 or self.tables is None) else [t.to_dict() for t in self.tables]
+            "tables_as_json": [t.to_dict() for t in self.tables]
         }
     
     def to_json(self, json_path: str):
