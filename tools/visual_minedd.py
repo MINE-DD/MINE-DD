@@ -8,7 +8,6 @@ import json
 import time
 from paperqa.settings import Settings, AgentSettings, ParsingSettings
 from minedd.query import Query
-from minedd.embeddings import Embeddings
 from pathlib import Path
 import dotenv
 dotenv.load_dotenv('../notebooks/.env')  # Load environment variables from .env file
