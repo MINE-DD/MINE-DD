@@ -74,8 +74,8 @@ class DocumentPDF:
             doc.json_content = content["text_chunks"]
             doc.tables = [pd.DataFrame(t) for t in content["tables_as_json"]]
             return doc
-        except:
-            print(f"Problem loading {json_path}. Check that the file has the right format. Returning None")
+        except Exception as e:
+            print(f"Problem loading {json_path}. Error {e}.\nCheck that the file has the right format. Returning None")
             return None
 
 

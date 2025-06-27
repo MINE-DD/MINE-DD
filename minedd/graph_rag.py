@@ -3,11 +3,9 @@ import networkx as nx
 from langchain.chat_models import init_chat_model
 from langchain_memgraph.chains.graph_qa import MemgraphQAChain
 from langchain_memgraph.graphs.memgraph import MemgraphLangChain # pip install langchain-memgraph
-from langchain.prompts import FewShotPromptTemplate, PromptTemplate
 from langchain_core.documents import Document
 from langchain_experimental.graph_transformers import LLMGraphTransformer
 import os
-import networkx as nx
 from pyvis.network import Network
 # import matplotlib.pyplot as plt
 
@@ -105,8 +103,10 @@ class GraphRAGSystem:
             It returns the NetworkX graph object and optionally saves it as an HTML file.
         """
         # Get relevant nodes and relationships (default: Get All)
-        nodes = nodes else self.graph.query("MATCH (n) RETURN n")
-        edges = edges else self.graph.query("MATCH (n)-[r]->(m) RETURN n, r, m")
+        if nodes is None:
+            nodes = self.graph.query("MATCH (n) RETURN n")
+        if edges is None:
+            edges = self.graph.query("MATCH (n)-[r]->(m) RETURN n, r, m")
 
         G = nx.Graph()
         

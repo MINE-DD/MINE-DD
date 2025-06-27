@@ -9,16 +9,13 @@ import os
 import cohere
 import faiss
 import numpy as np
-import pandas as pd
 from uuid import uuid4
 from rank_bm25 import BM25Okapi
 from sklearn.feature_extraction import _stop_words
 import string
 from tqdm import tqdm
 from pathlib import Path
-import json
 
-from langchain_core.documents import Document
 from langchain_ollama import OllamaEmbeddings
 from langchain.chat_models import init_chat_model
 from langchain_community.vectorstores import FAISS
@@ -78,7 +75,7 @@ def keyword_and_reranking_search(texts, bm25, query, top_k=3, num_candidates=10)
     bm25_hits = [{'corpus_id': idx, 'score': bm25_scores[idx]} for idx in top_n]
     bm25_hits = sorted(bm25_hits, key=lambda x: x['score'], reverse=True)
 
-    print(f"Top-3 lexical search (BM25) hits")
+    print("Top-3 lexical search (BM25) hits")
     for hit in bm25_hits[0:top_k]:
         print("\t{:.3f}\t{}".format(hit['score'], texts[hit['corpus_id']].replace("\n", " ")))
 
