@@ -235,51 +235,6 @@ class DocumentPDF:
             json.dump(self.get_document_as_dict(), json_file, indent=2)
 
 
-
-def process_from_grobid_chunks(filename, json_content, as_langchain_docs:bool=False, chunk_size:int=1000, overlap:int=100):
-
-    def _process_json_batch(batch):
-        if as_langchain_docs:
-            text = " ".join([c['text'] for c in batch])
-            metadata = {
-                "source": filename,
-                "title": doc_title,
-                "pages": f"{batch[0]['pages'].split('-')[0]}-{batch[-1]['pages'].split('-')[-1]}",
-                "chunk_index": f"{batch[0]['chunk_index']}-{batch[-1]['chunk_index']}",
-                "section": batch[0]['section'],
-                "sentence_count": len(batch),
-            }
-            doc = Document(
-                page_content=text,
-                metadata=metadata
-            )
-            return doc
-        else:
-            return [c['text'] for c in batch]
-    # json_content = self.json_content
-    if json_content is None:
-        raise ValueError("No JSON content available. Please run 'get_grobid_chunks' first.")
-    print("Processing JSON content into chunks of size ", chunk_size, " sentences with overlap ", overlap)
-    doc_title = json_content['title']
-    is_grouped_by_section = json_content['grouped_by_section']
-    chunks_key = 'sections_content' if is_grouped_by_section else 'chunks'
-    step_size = max(1, chunk_size - overlap)  # Ensure step_size >= 1
-    documents = []
-    if is_grouped_by_section:
-        for section_name, sentences in json_content[chunks_key].items():
-            for i in range(0, len(sentences), step_size):
-                batch = sentences[i:i + chunk_size]
-                doc = _process_json_batch(batch)
-                documents.append(doc)
-    else:
-        for i in range(0, len(json_content[chunks_key]), step_size):
-            batch = json_content[chunks_key][i:i + chunk_size]
-            doc = _process_json_batch(batch)
-            documents.append(doc)
-    return documents
-
-
-
 class DocumentMarkdown:
     def __init__(self, md_content:str = None, md_path: str = None):
         # Basic Attributes
@@ -369,3 +324,68 @@ class DocumentMarkdown:
         ref_list = ref_text.split('\n')
         return ref_list
 
+
+
+
+def process_from_grobid_chunks(filename, json_content, as_langchain_docs:bool=False, chunk_size:int=1000, overlap:int=100):
+
+    def _process_json_batch(batch):
+        if as_langchain_docs:
+            text = " ".join([c['text'] for c in batch])
+            metadata = {
+                "source": filename,
+                "title": doc_title,
+                "pages": f"{batch[0]['pages'].split('-')[0]}-{batch[-1]['pages'].split('-')[-1]}",
+                "chunk_index": f"{batch[0]['chunk_index']}-{batch[-1]['chunk_index']}",
+                "section": batch[0]['section'],
+                "sentence_count": len(batch),
+            }
+            doc = Document(
+                page_content=text,
+                metadata=metadata
+            )
+            return doc
+        else:
+            return [c['text'] for c in batch]
+    # json_content = self.json_content
+    if json_content is None:
+        raise ValueError("No JSON content available. Please run 'get_grobid_chunks' first.")
+    print("Processing JSON content into chunks of size ", chunk_size, " sentences with overlap ", overlap)
+    doc_title = json_content['title']
+    is_grouped_by_section = json_content['grouped_by_section']
+    chunks_key = 'sections_content' if is_grouped_by_section else 'chunks'
+    step_size = max(1, chunk_size - overlap)  # Ensure step_size >= 1
+    documents = []
+    if is_grouped_by_section:
+        for section_name, sentences in json_content[chunks_key].items():
+            for i in range(0, len(sentences), step_size):
+                batch = sentences[i:i + chunk_size]
+                doc = _process_json_batch(batch)
+                documents.append(doc)
+    else:
+        for i in range(0, len(json_content[chunks_key]), step_size):
+            batch = json_content[chunks_key][i:i + chunk_size]
+            doc = _process_json_batch(batch)
+            documents.append(doc)
+    return documents
+
+
+def get_documents_from_directory(directory, extensions=['.json'], chunk_size=10, overlap=5) -> list[Document]:
+    """Pre-process a directory of documents and load them into the vector store"""
+    # Load documents from directory
+    documents = []
+    processed_files = 0
+    for filename in os.listdir(directory):
+        if '.json' in extensions and filename.endswith('.json'):
+            processed_files += 1
+            full_paper = DocumentPDF.from_json(json_path=os.path.join(directory, filename))
+            paper_chunks = full_paper.get_chunks(
+                mode='from_json', 
+                chunk_size=chunk_size, 
+                overlap=overlap, 
+                as_langchain_docs=True
+                )
+            documents.extend(paper_chunks)
+
+    print(f"Processed {processed_files} files, extracted {len(documents)} Document chunks")
+    return documents
