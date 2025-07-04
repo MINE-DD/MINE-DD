@@ -15,7 +15,6 @@ from langchain_community.graphs.graph_document import GraphDocument
 from langchain_experimental.graph_transformers import LLMGraphTransformer
 from langchain_core.pydantic_v1 import BaseModel, Field
 import os
-from minedd.document import Document
 from minedd.document import get_documents_from_directory
 from pyvis.network import Network
 from dotenv import load_dotenv
@@ -62,7 +61,7 @@ def create_minedd_prompt(
     #     "GeoArea": ()
     # }
     node_label_examples = {
-        "MetheorologicalVariable": [
+        "Metheorological_Variable": [
             "daily total precipitation volume (mm)"
             "daily total surface runoff (mm)"
             "surface pressure (mbar)"
@@ -81,7 +80,7 @@ def create_minedd_prompt(
             "waterborne"
             "host factors",
             ],
-        "GeoArea": [
+        "Geo_Area": [
             "tropical areas",
             "developing countries",
             "Italy",
@@ -275,7 +274,7 @@ class GraphRAGDefault:
         self.graph_documents: list[GraphDocument] = []
         self.graph_transformer = LLMGraphTransformer(
             llm=llm,
-            #prompt=create_minedd_prompt(),
+            prompt=create_minedd_prompt(),
             #vallowed_nodes=["PERSON", "PUBLICATION", "LOCATION", "NATIONALITY", "STATEMENT"]
             )
         self.qa_chain = MemgraphQAChain.from_llm(
@@ -472,32 +471,11 @@ def build_knowledge_graph(llm, database_name, graph_cache):
     if graph_rag.graph_cache_file and os.path.exists(graph_rag.graph_cache_file):
         graph_rag.load_graph_docs()
     else:
-        # texts = [
-        #     """
-        #     Climate change threatens to undermine recent progress in reducing global deaths from diarrhoeal disease in children. 
-        #     However, the scarcity of evidence about how individual environmental factors affect transmission of specific pathogens makes prediction of trends under different climate scenarios challenging. We aimed to model associations between daily estimates of a suite of hydrometeorological variables and rotavirus infection status ascertained through community-based surveillance.
-        #     """,
-        #     """
-        #     For this analysis of multisite cohort data, rotavirus infection status was ascertained through community- based surveillance of infants in the eight-site MAL-ED cohort study, and matched by date with earth observation estimates of nine hydrometeorological variables from the Global Land Data Assimilation System: 
-        #     daily total precipitation volume (mm), daily total surface runoff (mm), surface pressure (mbar), wind speed (m/s), relative humidity (%), soil moisture (%), solar radiation (W/m2), specific humidity (kg/kg), and average daily temperatures (°C). 
-        #     Lag relationships, independent effects, and interactions were characterised by use of modified Poisson models and compared with and without adjustment for seasonality and between-site variation. 
-        #     Final models were created with stepwise selection of main effects and interactions and their validity assessed by excluding each site in turn and calculating Tjur’s Coefficients of Determination.
-        #     """,
-        #     """
-        #     All nine hydrometeorological variables were significantly associated with rotavirus infection after adjusting for seasonality and between-site variation over multiple consecutive or non-consecutive lags, showing complex, often non-linear associations that differed by symptom status and showed considerable mutual interaction. 
-        #     The final models explained 5·9% to 6·2% of the variability in rotavirus infection in the pooled data and their predictions explained between 0·0% and 14·1% of the variability at individual study sites.
-        #     """,
-        #     """
-        #     These results suggest that the effect of climate on rotavirus transmission was mediated by four independent mechanisms: waterborne dispersal, airborne dispersal, virus survival on soil and surfaces, and host factors. 
-        #     Earth observation data products available at a global scale and at subdaily resolution can be combined with longitudinal surveillance data to test hypotheses about routes and drivers of transmission but showed little potential for making predictions in this setting.
-        #     """
-        # ]
-        # documents = [Document(page_content=t) for t in texts]
         documents = get_documents_from_directory(
             directory=Path.home() / "papers_minedd",
             extensions=['.json'],
-            chunk_size=8, # Number of sentences to merge into one Document
-            overlap=2 # Number of sentences to overlap between chunks
+            chunk_size=20, # Number of sentences to merge into one Document
+            overlap=4 # Number of sentences to overlap between chunks
         )
         documents = random.sample(documents, k=50)
         asyncio.run(graph_rag.create_from_documents(documents))
@@ -529,7 +507,7 @@ if __name__ == "__main__":
             )
 
     # Example usage for Building a KG
-    graph_rag = build_knowledge_graph(llm, database_name="test_papers", graph_cache='graph_gemini_50.pkl')
+    graph_rag = build_knowledge_graph(llm, database_name="test_papers", graph_cache='graph_gemini_custom_prompt.pkl')
 
 
     # Example queries
