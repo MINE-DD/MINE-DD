@@ -18,36 +18,47 @@ from pathlib import Path
 
 from langchain_ollama import OllamaEmbeddings
 from langchain.chat_models import init_chat_model
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.vectorstores import FAISS
 from langchain_community.docstore.in_memory import InMemoryDocstore
-from minedd.document import DocumentMarkdown
-from minedd.document import DocumentPDF
+from minedd.document import get_documents_from_directory
 from dotenv import load_dotenv
 load_dotenv(override=True)
 
 
-# This function is to create a document database from a list of markdown files.
-def documentdb_from_markdown(filenames):
-    chunks = []
-    # Load Document(s)
-    for filename in filenames:
-        markdown_paper = DocumentMarkdown(md_path=filename)
-        chunks += markdown_paper.convert_to_chunks(mode="chars", chunk_size=1500, overlap=100)
-    # Index
-    print(len(chunks))
-    response = co.embed(
-    texts=chunks,
-    input_type="search_document",
-    ).embeddings
-
-    embeds = np.array(response)
-    embedding_dim = embeds.shape[1]
-    print(embeds.shape)
-    # Create Index (and Vector Store?)
-    index = faiss.IndexFlatL2(embedding_dim)
-    index.add(np.float32(embeds))
-    return index, chunks
-
+CANNOT_ANSWER_PHRASE = "Sorry, I do not know the answer for this =("
+CITATION_KEY_CONSTRAINTS = (
+    "## Valid citation examples: \n"
+    "- [Global_Sea pages 12-12]\n"
+    "- [Are_hospit pages 3-4] \n"
+    "- [Global_Sea pages 7-10] \n"
+    "## Invalid citation examples: \n"
+    "- Example2024Example pages 3-4 and pages 4-5 \n"
+    "- Example2024Example (pages 3-4) \n"
+    "- Example2024Example pages 3-4, pages 5-6 \n"
+    "- Example2024Example et al. (2024) \n"
+    "- Example's work (pages 17–19) \n"  # noqa: RUF001
+    "- (pages 17–19) \n"  # noqa: RUF001
+)
+QA_VANILLA_PROMPT = (
+    "Answer the question below with the context.\n\n"
+    "Context:\n\n{context}\n\n----\n\n"
+    "Question: {question}\n\n"
+    "Write an answer based on the context. "
+    "If the context provides insufficient information reply "
+    f'"{CANNOT_ANSWER_PHRASE}." '
+    "For each part of your answer, indicate which sources most support "
+    "it via citation keys at the end of sentences, like {example_citation}. "
+    "Only cite from the context above and only use the citation keys from the context. "
+    f"{CITATION_KEY_CONSTRAINTS}"
+    "Do not concatenate citation keys, just use them as is. "
+    "Write in the style of a Wikipedia article, with concise sentences and "
+    "coherent paragraphs. The context comes from a variety of sources and is "
+    "only a summary, so there may inaccuracies or ambiguities. If quotes are "
+    "present and relevant, use them in the answer. This answer will go directly "
+    "onto Wikipedia, so do not add any extraneous information.\n\n"
+    "Answer ({answer_length}):"
+)
 
 def bm25_tokenizer(text):
     tokenized_doc = []
@@ -180,32 +191,30 @@ class SimpleRAG:
         self.llm = generative_llm
         self.embeddings = embeddings
         self.vector_store = vector_store
-
-    def get_documents_from_directory(self, directory, extensions=['.json'], chunk_size=10, overlap=5):
-        """Pre-process a directory of documents and load them into the vector store"""
-        # Load documents from directory
-        documents = []
-        processed_files = 0
-        for filename in os.listdir(directory):
-            if '.json' in extensions and filename.endswith('.json'):
-                processed_files += 1
-                full_paper = DocumentPDF.from_json(json_path=os.path.join(directory, filename))
-                paper_chunks = full_paper.get_chunks(
-                    mode='from_json', 
-                    chunk_size=chunk_size, 
-                    overlap=overlap, 
-                    as_langchain_docs=True
-                    )
-                documents.extend(paper_chunks)
-
-        print(f"Processed {processed_files} files, extracted {len(documents)} Document chunks")
-        return documents
+        self.prompt = ChatPromptTemplate([("user", QA_VANILLA_PROMPT)])
+        self.chain = self.prompt | self.llm
 
     def load_documents(self, documents):
         """Load documents into the vector store"""
         if self.vector_store is None:
             raise ValueError("Vector store not initialized")
         self.vector_store.add_documents(documents)
+    
+    def query(self, question, k):
+        """Query the knowledge graph with natural language"""
+        # Retrieve closest passages (results are a list of Documents)           
+        results = self.vector_store.search(question, k=k)
+        context = "\n".join([f"{r.page_content} [{r.metadata.get('title', 'No Title').replace(' ', '_')[:10]} pages {r.metadata.get('pages')}]" for r in results])
+        # print(">>>",context)
+        # generate Answer based on results
+        response = self.chain.invoke({
+            "context": context,
+            "question": question,
+            "example_citation": "[Are_hospit pages 13-14]", 
+            "answer_length": 200
+
+        })
+        return results, response.content
 
 
 def run_vanilla_rag(embeddings, llm):
@@ -233,7 +242,7 @@ def run_vanilla_rag(embeddings, llm):
         vector_store.initialize()
     else:
         print(f"No existing vector store found at {vector_store_path}, Chunking and Loading Documents to create one...")
-        docs = rag_engine.get_documents_from_directory(
+        docs = get_documents_from_directory(
             directory=Path.home() / "papers_minedd",
             extensions=['.json'],
             chunk_size=8, # Number of sentences to merge into one Document
@@ -251,30 +260,34 @@ def run_vanilla_rag(embeddings, llm):
 
     for r in results:
         print(r)
+    
+    print("\n\n----- RAG Response \n\n")
+    contexts, response = rag_engine.query(question=query, k=3)
+    print("\n\n",response)
 
 
-    ## 2 - ReRanking (Using Cohere?)
-    print("\n\n----- BM25 + ReRanker\n\n")
-    texts = [doc.page_content for doc in vector_store.get_all_documents()]
-    results_hybrid = keyword_and_reranking_search(texts, vector_store.bm25_index, query, top_k=3, num_candidates=10)
-    for hit in results_hybrid:
-        print("\t{:.3f}\t{}".format(hit.relevance_score, hit.document.text.replace("\n", " ")))
+    # ## 2 - ReRanking (Using Cohere?)
+    # print("\n\n----- BM25 + ReRanker\n\n")
+    # texts = [doc.page_content for doc in vector_store.get_all_documents()]
+    # results_hybrid = keyword_and_reranking_search(texts, vector_store.bm25_index, query, top_k=3, num_candidates=10)
+    # for hit in results_hybrid:
+    #     print("\t{:.3f}\t{}".format(hit.relevance_score, hit.document.text.replace("\n", " ")))
 
-    # 3 - Grounded Generation (Using Cohere?)
-    docs_dict = [{'text': doc.page_content} for doc in results]
-    response = co.chat(
-        message = query,
-        documents=docs_dict
-    )
-    print(f"Response FAISS:\n{response.text}")
+    # # 3 - Grounded Generation (Using Cohere?)
+    # docs_dict = [{'text': doc.page_content} for doc in results]
+    # response = co.chat(
+    #     message = query,
+    #     documents=docs_dict
+    # )
+    # print(f"Response FAISS:\n{response.text}")
 
 
-    docs_dict = [{'text': doc.document.text} for doc in results_hybrid]
-    response = co.chat(
-        message = query,
-        documents=docs_dict
-    )
-    print(f"Response Hybrid ReRanked:\n{response.text}")
+    # docs_dict = [{'text': doc.document.text} for doc in results_hybrid]
+    # response = co.chat(
+    #     message = query,
+    #     documents=docs_dict
+    # )
+    # print(f"Response Hybrid ReRanked:\n{response.text}")
 
 
 if __name__ == "__main__":

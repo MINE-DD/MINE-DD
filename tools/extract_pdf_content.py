@@ -1,8 +1,8 @@
 """
 
     Execution examples: 
-     - Run Grobid only: python scripts/extract_pdf_content.py --directory "/papers_minedd" --mode grobid
-     - Run Full pipeline: python scripts/extract_pdf_content.py --directory "/papers_minedd" --llm "llama3.2:latest" --mode all
+     - Run Grobid only: python tools/extract_pdf_content.py --directory "/papers_minedd" --mode grobid
+     - Run Full pipeline: python tools/extract_pdf_content.py --directory "/papers_minedd" --llm "llama3.2:latest" --mode all
 
 """
 

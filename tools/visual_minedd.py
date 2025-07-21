@@ -6,7 +6,9 @@ import pandas as pd
 import os
 import json
 import time
+import re
 from paperqa.settings import Settings, AgentSettings, ParsingSettings
+from minedd.embeddings import Embeddings
 from minedd.query import Query
 from pathlib import Path
 import dotenv
@@ -88,12 +90,22 @@ def initialize_engine(selected_model):
 @st.cache_data
 def get_documents():
     documents = {}
+    embeddings_db = Embeddings()
+    embeddings_db.load_existing_embeddings(EMBEDDINGS_DIR)
     if os.path.exists(PAPERS_DIRECTORY):
-        for f in os.listdir(PAPERS_DIRECTORY):
-            if f.endswith(('.pdf', '.md')):
-                documents[f] = get_document_parsed_content(f)
+        try:
+            docs_df = embeddings_db.get_docs_details()
+            filenames_df = pd.DataFrame({"filename": os.listdir(PAPERS_DIRECTORY)})
+            filenames_df["title"] = filenames_df["filename"].apply(lambda row: re.sub(" +", " ", row.strip(".pdf").replace("_", " ").replace("-", " ")).strip())
+            filenames_df = filenames_df.merge(docs_df, how="left", on="title")
+        except Exception as e:
+            print(f"Error loading document titles: {str(e)}")
+            docs_df = pd.DataFrame([])
+        for filename in os.listdir(PAPERS_DIRECTORY):
+            if filename.endswith(('.pdf', '.md')):
+                documents[filename] = get_document_parsed_content(filename)
 
-    return documents
+    return documents, docs_df[["docname", "title"]]
 
 
 @st.cache_data
@@ -131,12 +143,12 @@ if 'current_model' not in st.session_state or st.session_state.current_model != 
 # Available Documents Section
 st.subheader('📄 Available Documents')
 with st.expander("View Available Documents", expanded=False):
-    documents = get_documents()
-    try:
-        show_docs_df = pd.DataFrame([(documents[k]['text_chunks']['title'], k) for k in documents.keys()], columns=['Title', 'Document Filename'])
-    except KeyError:
-        show_docs_df = pd.DataFrame(columns=['Title', 'Document Filename'])
-        st.error("Error loading document titles. Please check the document structure.")
+    documents, show_docs_df = get_documents()
+    # try:
+    #     show_docs_df = pd.DataFrame([(documents[k]['text_chunks']['title'], k) for k in documents.keys()], columns=['Title', 'Document Filename'])
+    # except KeyError:
+    #     show_docs_df = pd.DataFrame(columns=['Title', 'Document Filename'])
+    #     st.error("Error loading document titles. Please check the document structure.")
 
     
     if documents:
@@ -158,7 +170,7 @@ col1, col2, col3 = st.columns([6, 1, 1])
 
 with col1:
     # Text input for the question
-    question = st.text_input('Enter your question:', placeholder='What are the climatic associated factors of Cryptosporidium?')
+    question = st.text_input('Enter your question:', value='What are the climatic associated factors of Cryptosporidium?')
 
 with col2:
     search_button = st.button('🔍 Search', type='primary')
@@ -198,11 +210,13 @@ if search_button and question:
                         st.write(f"**{i+1}.** {citation}")
                         shown_citations.add(citation)
             
-            # URLs section (if available)
-            if result.get('urls') and len(result['urls']) > 0:
-                st.subheader('🔗 URLs')
-                for i, url in enumerate(result['urls']):
-                    st.write(f"**{i+1}.** {url}")
+            # # Origina Contexts section (if available). But this is not nice because PyPDF does not parse well the contexts so they are crappy
+            # raw_response = result.get('raw_response')
+            # if raw_response:
+            #     texts = [context.text for context in raw_response.contexts]
+            #     st.subheader('🔗 Relevant Contexts')
+            #     for i, text in enumerate(texts):
+            #         st.write(f"**{i+1}. {text.name})** ... {text.text} ...")
                     
         except Exception as e:
             st.error(f'An error occurred: {str(e)}')
