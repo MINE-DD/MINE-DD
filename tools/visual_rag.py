@@ -6,7 +6,6 @@ import pandas as pd
 import os
 import json
 import time
-import re
 import faiss
 from minedd.rag import PersistentFAISS, SimpleRAG, get_documents_from_directory
 from pathlib import Path

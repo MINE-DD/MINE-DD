@@ -98,7 +98,8 @@ def get_documents():
             filenames_df = pd.DataFrame({"filename": os.listdir(PAPERS_DIRECTORY)})
             filenames_df["title"] = filenames_df["filename"].apply(lambda row: re.sub(" +", " ", row.strip(".pdf").replace("_", " ").replace("-", " ")).strip())
             filenames_df = filenames_df.merge(docs_df, how="left", on="title")
-        except:
+        except Exception as e:
+            print(f"Error loading document titles: {str(e)}")
             docs_df = pd.DataFrame([])
         for filename in os.listdir(PAPERS_DIRECTORY):
             if filename.endswith(('.pdf', '.md')):
