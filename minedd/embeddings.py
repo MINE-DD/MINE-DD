@@ -167,11 +167,12 @@ class Embeddings:
         
         # Process each paper and add it to a PaperQA Docs object
         for i, doc in tqdm(enumerate(paper_list), total=len(paper_list), desc="Processing papers:", unit="paper"):
-            doc_title = re.sub(" +", " ", doc.strip(".pdf").replace("_", " ").replace("-", " "))
+            doc_title = re.sub(" +", " ", doc.strip(".pdf").replace("_", " ").replace("-", " ")).strip()
             try:
                 docs.add(
                         path=str(os.path.join(self.paper_directory, doc)),
                         docname=doc_title,
+                        title=doc_title,
                         settings=self.settings
                 )
                 print(f"Correctly loaded {doc}")

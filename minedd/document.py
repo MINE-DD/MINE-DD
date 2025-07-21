@@ -5,6 +5,7 @@ import pandas as pd
 # For Grobid-Based PDF Text extraction
 from langchain_community.document_loaders.parsers import GrobidParser
 from langchain_community.document_loaders.generic import GenericLoader
+from GrobidArticleExtractor.app import GrobidArticleExtractor
 # For Chunking Texts
 from langchain_core.documents import Document
 from langchain_text_splitters.character import CharacterTextSplitter, RecursiveCharacterTextSplitter
@@ -98,11 +99,13 @@ class DocumentPDF:
     
     def get_grobid_chunks(self, 
                             segment_sentences:bool = True, 
-                            return_as_dict:bool = False, 
+                            return_as_dict:bool = False,
+                            include_detailed_metadata:bool = True, 
                             group_dict_by_section:bool = True) -> dict | list[Document]:
         """
         uses GROBID (instructions here: https://grobid.readthedocs.io/en/latest/Install-Grobid/) 
         to extract chunks from the PDF document and returns and organized JSON per paper section
+        When installed, go to path/to/grobid-0.8.2 and load server with: ./gradlew run
         """
         try:
             loader = GenericLoader.from_filesystem(
@@ -115,6 +118,18 @@ class DocumentPDF:
             print("Returning empty list...")
             docs = []
         
+        doc_metadata = {}
+        if include_detailed_metadata:
+            try:
+                full_extractor = GrobidArticleExtractor()
+                xml_content = full_extractor.process_pdf(self.pdf_path)
+                result = full_extractor.extract_content(xml_content)
+                doc_metadata = result['metadata']
+            except Exception as e:
+                print("ERROR", e)
+                print("Returning empty metadata dict...")
+                doc_metadata = {}
+        
         if len(docs) == 0:
             return docs
 
@@ -125,6 +140,8 @@ class DocumentPDF:
                 "sections_titles": [],
                 "sections_content": {}
                 }
+            for metakey in doc_metadata.keys():
+                docs_dict[metakey] = doc_metadata[metakey]
             for i, doc in enumerate(docs):
                 pages_str = "-".join((re.findall(r"'([^']+)'", doc.metadata['pages'])))
                 section_title = doc.metadata.get("section_title", "NoSection")
@@ -149,6 +166,8 @@ class DocumentPDF:
                 "grouped_by_section": group_dict_by_section,
                 "chunks": [],
                 }
+            for metakey in doc_metadata.keys():
+                docs_dict[metakey] = doc_metadata[metakey]
             for i, doc in enumerate(docs):
                 pages_str = "-".join((re.findall(r"'([^']+)'", doc.metadata['pages'])))
                 section_title = doc.metadata.get("section_title", "NoSection")
@@ -386,6 +405,8 @@ def get_documents_from_directory(directory, extensions=['.json'], chunk_size=10,
                 as_langchain_docs=True
                 )
             documents.extend(paper_chunks)
+        else:
+            raise NotImplementedError("Only Document JSONs are supported (Created by the Document.get_grobid_chunks() method)")
 
     print(f"Processed {processed_files} files, extracted {len(documents)} Document chunks")
     return documents

@@ -205,7 +205,7 @@ class SimpleRAG:
         # Retrieve closest passages (results are a list of Documents)           
         results = self.vector_store.search(question, k=k)
         context = "\n".join([f"{r.page_content} [{r.metadata.get('title', 'No Title').replace(' ', '_')[:10]} pages {r.metadata.get('pages')}]" for r in results])
-        print(">>>",context)
+        # print(">>>",context)
         # generate Answer based on results
         response = self.chain.invoke({
             "context": context,
@@ -214,7 +214,7 @@ class SimpleRAG:
             "answer_length": 200
 
         })
-        return response.content
+        return results, response.content
 
 
 def run_vanilla_rag(embeddings, llm):
@@ -262,7 +262,7 @@ def run_vanilla_rag(embeddings, llm):
         print(r)
     
     print("\n\n----- RAG Response \n\n")
-    response = rag_engine.query(question=query, k=3)
+    contexts, response = rag_engine.query(question=query, k=3)
     print("\n\n",response)
 
 
