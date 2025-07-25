@@ -12,14 +12,14 @@ from langchain_text_splitters.character import CharacterTextSplitter, RecursiveC
 
 
 class DocumentPDF:
-    def __init__(self, pdf_path: str, marker_config:dict=None, output_format:str="markdown"):
+    def __init__(self, pdf_path: str, marker_config:dict={}, output_format:str="markdown"):
         # Basic Attributes
         self.pdf_path = pdf_path
         self.markdown = None
         self.json_content = None
         self.tables = []
         # Configure Marker to use Ollama as the LLM service
-        if marker_config is None:
+        if marker_config == {}:
             self.marker_config = {
                 "output_format": output_format,  # Default output format is markdown, can also be 'json'?
                 "use_llm": True,
@@ -29,7 +29,7 @@ class DocumentPDF:
                 "paginate_output": False # Set to True if you need pagination string separators
             }
         else:
-            self.marker_config = marker_config
+            self.marker_config = {}
         self.marker_converter = None
         
 
@@ -83,6 +83,8 @@ class DocumentPDF:
     def get_markdown(self) -> str:
         if self.markdown is not None:
             return self.markdown
+        elif self.marker_converter is None:
+            raise RuntimeError("Marker converter is not initialized. Please call _init_marker() first.")
         else:
             if self.marker_config.get("output_format") != "markdown":
                 raise ValueError("Output format must be set to 'markdown' in the configuration.")
@@ -123,8 +125,9 @@ class DocumentPDF:
             try:
                 full_extractor = GrobidArticleExtractor()
                 xml_content = full_extractor.process_pdf(self.pdf_path)
-                result = full_extractor.extract_content(xml_content)
+                result = full_extractor.extract_content(xml_content) if xml_content else {}
                 doc_metadata = result['metadata']
+                assert isinstance(doc_metadata, dict), "Grobid extraction did not return a dictionary."
             except Exception as e:
                 print("ERROR", e)
                 print("Returning empty metadata dict...")
@@ -182,6 +185,7 @@ class DocumentPDF:
                 docs_dict["chunks"].append(row)
             docs = docs_dict
             self.json_content = docs_dict
+        # Otherwise return the list of LangChain Document objects
         return docs
 
 
@@ -189,7 +193,7 @@ class DocumentPDF:
         "Uses GMT to extract tables as loadable CSV files from the PDF document. Stores the tables in a list of loadable strings."
         # For Table Extraction
         from gmft.auto import AutoTableDetector, AutoTableFormatter
-        from gmft.pdf_bindings import PyPDFium2Document
+        from gmft.pdf_bindings import PyPDFium2Document # type: ignore
         
         detector = AutoTableDetector()
         formatter = AutoTableFormatter()
@@ -255,7 +259,7 @@ class DocumentPDF:
 
 
 class DocumentMarkdown:
-    def __init__(self, md_content:str = None, md_path: str = None):
+    def __init__(self, md_content:str = "", md_path: str = ""):
         # Basic Attributes
         self.name = None
         self.md_path = md_path if md_path else None
@@ -263,7 +267,7 @@ class DocumentMarkdown:
             print("WARNING! Both 'md_content' and 'md_path' were provided, only loading the content from 'md_content'.")
         if md_content:
             self.markdown = md_content
-        elif md_path:
+        elif self.md_path:
             self.markdown = self.load_content(self.md_path)
         else:
             raise ValueError("Either 'md_content' or 'md_path' must be provided.")     
@@ -300,7 +304,7 @@ class DocumentMarkdown:
 
     def load_content(self, from_path: str):
         try:
-            with open(self.md_path, 'r', encoding='utf-8') as file:
+            with open(from_path, 'r', encoding='utf-8') as file:
                 self.markdown = file.read()
                 return self.markdown
         except FileNotFoundError:
@@ -398,6 +402,8 @@ def get_documents_from_directory(directory, extensions=['.json'], chunk_size=10,
         if '.json' in extensions and filename.endswith('.json'):
             processed_files += 1
             full_paper = DocumentPDF.from_json(json_path=os.path.join(directory, filename))
+            if full_paper is None:
+                continue
             paper_chunks = full_paper.get_chunks(
                 mode='from_json', 
                 chunk_size=chunk_size, 
