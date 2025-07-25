@@ -67,7 +67,7 @@ def configure_settings(model_type: str,
             chunk_size=chunk_size,
             overlap=overlap
         ),
-        prompts={"use_json": False}
+        prompts={"use_json": False} # type: ignore
     )
     return settings
 

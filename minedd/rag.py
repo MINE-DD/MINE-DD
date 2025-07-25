@@ -60,6 +60,8 @@ QA_VANILLA_PROMPT = (
     "Answer ({answer_length}):"
 )
 
+co = cohere.Client(os.environ.get("COHERE_API_KEY"))
+
 def bm25_tokenizer(text):
     tokenized_doc = []
     for token in text.lower().split():
@@ -156,6 +158,8 @@ class PersistentFAISS:
     
     def _save_index(self):
         """Save the current index"""
+        if self.vector_store is None:
+            raise ValueError("Vector store not initialized")
         os.makedirs(self.index_path, exist_ok=True)
         self.vector_store.save_local(self.index_path)
     
@@ -164,7 +168,7 @@ class PersistentFAISS:
         if self.vector_store is None:
             raise ValueError("Vector store not initialized")
         
-        return self.vector_store.docstore._dict.values()
+        return self.vector_store.docstore._dict.values() # type: ignore
 
     def add_documents(self, documents):
         """Add new documents to existing index"""
@@ -181,7 +185,8 @@ class PersistentFAISS:
             raise ValueError("Vector store not initialized")
         
         if hybrid and self.include_bm25:
-            return keyword_and_reranking_search(self.bm25, query, top_k=k, num_candidates=10)
+            texts = [doc.page_content for doc in self.get_all_documents()]
+            return keyword_and_reranking_search(texts, self.bm25_index, query, top_k=k, num_candidates=10)
         else:
             return self.vector_store.similarity_search(query, k=k)
 
@@ -231,7 +236,7 @@ def run_vanilla_rag(embeddings, llm):
     
     # Create RAG Engine
     rag_engine = SimpleRAG(
-        embeddings=ollama_embeddings,
+        embeddings=embeddings,
         generative_llm=llm,
         vector_store=vector_store
     )
@@ -266,30 +271,6 @@ def run_vanilla_rag(embeddings, llm):
     print("\n\n",response)
 
 
-    # ## 2 - ReRanking (Using Cohere?)
-    # print("\n\n----- BM25 + ReRanker\n\n")
-    # texts = [doc.page_content for doc in vector_store.get_all_documents()]
-    # results_hybrid = keyword_and_reranking_search(texts, vector_store.bm25_index, query, top_k=3, num_candidates=10)
-    # for hit in results_hybrid:
-    #     print("\t{:.3f}\t{}".format(hit.relevance_score, hit.document.text.replace("\n", " ")))
-
-    # # 3 - Grounded Generation (Using Cohere?)
-    # docs_dict = [{'text': doc.page_content} for doc in results]
-    # response = co.chat(
-    #     message = query,
-    #     documents=docs_dict
-    # )
-    # print(f"Response FAISS:\n{response.text}")
-
-
-    # docs_dict = [{'text': doc.document.text} for doc in results_hybrid]
-    # response = co.chat(
-    #     message = query,
-    #     documents=docs_dict
-    # )
-    # print(f"Response Hybrid ReRanked:\n{response.text}")
-
-
 if __name__ == "__main__":
     # model_name="command-r-plus",
     # model_provider="cohere"
@@ -303,17 +284,7 @@ if __name__ == "__main__":
     model_name="command-r-plus"
     model_provider="cohere"
 
-    # For now will use Cohere Re-Ranker
-    cohere_api_key = os.getenv('COHERE_API_KEY')
-    co = cohere.Client(cohere_api_key)
-
-    llm = init_chat_model(model_name, model_provider=model_provider)
-    # llm = init_chat_model("gemini-2.5-flash-lite-preview-06-17", model_provider="google_genai")
-
-    # Embeddings model
-    ollama_embeddings = OllamaEmbeddings(model="mxbai-embed-large:latest")
-
     run_vanilla_rag(
-        embeddings=ollama_embeddings,
-        llm=llm
+        embeddings=OllamaEmbeddings(model="mxbai-embed-large:latest"),
+        llm=init_chat_model(model_name, model_provider=model_provider)
     )
