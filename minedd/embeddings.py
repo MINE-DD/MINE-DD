@@ -1,10 +1,12 @@
 import os
 import re
 import pandas as pd
+from typing import Optional
 from dataclasses import dataclass
 from tqdm import tqdm
 from paperqa import Docs
 import pickle as pkl
+from pathlib import Path
 from minedd.utils import configure_settings, safely_load_pickle_file
 
 @dataclass
@@ -25,8 +27,8 @@ class DocumentChunk:
     docname: str
     dockey: str
     chunkname: str
-    pages: list[int]
-    embedding: list[float] = None
+    pages: str
+    embedding: Optional[list[float]] = None
     
     def __repr__(self):
         embedding = self.embedding[:5] if self.embedding is not None else []
@@ -50,7 +52,7 @@ class Embeddings:
                  embedding_model: str = "ollama/mxbai-embed-large:latest",
                  output_embeddings_path: str = "out/embeddings.pkl",
                  paper_directory: str = "data/",
-                 existing_docs: Docs = None,
+                 existing_docs: Optional[Docs] = None,
                  ):
         self.output_embeddings_path = output_embeddings_path
         self.paper_directory = paper_directory
@@ -126,7 +128,7 @@ class Embeddings:
         details_df = pd.DataFrame(doc_details)
         return details_df
 
-    def prepare_papers(self, paper_directory: str = None):
+    def prepare_papers(self, paper_directory: Optional[str] = None):
         """Takes a Path object with the location of PDFs to process and returns a list of the valid papers in the directory.
         Args:
             paper_directory (str, optional): location of (new) papers in PDF format. If None it takes the default paper directory
@@ -163,7 +165,7 @@ class Embeddings:
             docs = self.docs
         else:
             print("Creating new Docs object.")
-            docs = Docs(index_path=self.output_embeddings_path)
+            docs = Docs(index_path=Path(self.output_embeddings_path))
         
         # Process each paper and add it to a PaperQA Docs object
         for i, doc in tqdm(enumerate(paper_list), total=len(paper_list), desc="Processing papers:", unit="paper"):
@@ -186,7 +188,7 @@ class Embeddings:
             pkl.dump(docs, f)
         print(f"Docs object saved to {self.output_embeddings_path}")
     
-    def get_document_chunks(self, docname: str, include_embeddings: bool = False, pages: list[int] = None):
+    def get_document_chunks(self, docname: str, include_embeddings: bool = False, pages: Optional[list[int]] = None):
         """Get the chunks of a document by its key.
         Args:
             docname (str): The key of the document to retrieve chunks from.
