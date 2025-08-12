@@ -2,8 +2,17 @@
     To use this script at full capacity, make sure to do the following:
     
     1. Install Ollama and run the Ollama server (to use Marker with LLMs)
-    
+        1) Download Ollama from: https://ollama.com/download
+        2) Run the Graphic Version or In a separate terminal, run: ollama serve --port 11434
+        3) To Download models for Ollama, run e.g.: ollama pull llama3.2:latest
+
     2. Install Grobid and run the Grobid server
+        Needs separate Java Virtual Machine instalation and follow instructions here: https://grobid.readthedocs.io/en/latest/Install-Grobid/
+        In a separate terminal:
+        1) Download: wget https://github.com/kermitt2/grobid/archive/0.8.2.zip
+        2) Go into Grobid Dir: cd grobid-0.8.2
+        3) Install: ./gradlew clean install
+        4) Run Server: ./gradlew run
 
     Otherwise you can run the script on --simple mode, which will only use marker without LLMs to extract content
 

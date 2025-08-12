@@ -1,7 +1,9 @@
 import re
+import hashlib
 import os
 import json
 import pandas as pd
+from typing import Optional
 # For Marker as PDF to Markdown Converter
 from marker.converters.pdf import PdfConverter
 from marker.models import create_model_dict
@@ -19,10 +21,12 @@ from langchain_text_splitters.character import CharacterTextSplitter, RecursiveC
 class DocumentPDF:
     def __init__(self, pdf_path: str, marker_config:dict={}, output_format:str="markdown"):
         # Basic Attributes
+        self.doc_key = None
         self.pdf_path = pdf_path
         self.markdown = None
         self.json_content = None
         self.tables = []
+        self.authors = []
         # Configure Marker to use Ollama as the LLM service
         if marker_config == {}:
             self.marker_config = {
@@ -49,6 +53,38 @@ class DocumentPDF:
         self.text_from_rendered = text_from_rendered
         print("Marker initialized successfully.")
         
+    def infer_document_title(self):
+        """
+        Infer the document name from the PDF path.
+        """
+        if self.pdf_path:
+            file_title = os.path.basename(self.pdf_path).replace('.pdf', '')
+            file_title = re.sub(r'[_-]', ' ', file_title)  # Replace underscores and hyphens with spaces
+            title_words = re.findall(r'\w+', file_title)
+        else:
+            title_words = []
+        return ' '.join(title_words).title() if title_words else "No Title"
+
+    def make_doc_key(self, first_author: Optional[str] = None) -> str:
+        if self.doc_key is not None:
+            return self.doc_key
+        # Get the document title
+        title = self.infer_document_title()
+        keywords = self.infer_document_title().split()[:2]
+        keywords_part = "".join([w.capitalize() for w in keywords])
+        # Get a short hash from the title content for uniqueness
+        short_hash = hashlib.md5(title.encode('utf-8')).hexdigest()[:6]
+        # Normalize the author's last name (no spaces, capitalized first letter)
+        if first_author:
+            last_name = re.sub(r'[^A-Za-z]', '', first_author).capitalize()
+            return f"{last_name}_{keywords_part}_{short_hash}"
+        elif len(self.authors) > 0:
+            first_author = self.authors[0]
+            last_name = re.sub(r'[^A-Za-z]', '', first_author).capitalize()
+            return f"{last_name}_{keywords_part}_{short_hash}"
+        else:
+            return f"{keywords_part}_{short_hash}"
+
 
     @classmethod
     def from_json(cls, json_path: str):
@@ -64,6 +100,8 @@ class DocumentPDF:
 
         try:
             doc = cls(json_path.replace('.json', '.pdf'))  # Assuming the PDF file has the same name as the JSON file
+            doc.authors = content.get("authors", [])
+            doc.doc_key = content.get("doc_key", None)
             doc.markdown = content["markdown"]
             doc.json_content = content["text_chunks"]
             doc.tables = [pd.DataFrame(t) for t in content["tables_as_json"]]
@@ -120,6 +158,7 @@ class DocumentPDF:
                 result = full_extractor.extract_content(xml_content) if xml_content else {}
                 doc_metadata = result['metadata']
                 assert isinstance(doc_metadata, dict), "Grobid extraction did not return a dictionary."
+                self.authors = doc_metadata['authors']
             except Exception as e:
                 print("ERROR", e)
                 print("Returning empty metadata dict...")
@@ -239,6 +278,8 @@ class DocumentPDF:
     
     def get_document_as_dict(self):
         return {
+            "doc_key": self.make_doc_key(),
+            "title": self.infer_document_title(),
             "original_path": self.pdf_path,
             "markdown": self.markdown,
             "text_chunks": self.json_content,
