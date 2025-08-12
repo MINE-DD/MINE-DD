@@ -2,6 +2,11 @@ import re
 import os
 import json
 import pandas as pd
+# For Marker as PDF to Markdown Converter
+from marker.converters.pdf import PdfConverter
+from marker.models import create_model_dict
+from marker.output import text_from_rendered
+from marker.config.parser import ConfigParser
 # For Grobid-Based PDF Text extraction
 from langchain_community.document_loaders.parsers import GrobidParser
 from langchain_community.document_loaders.generic import GenericLoader
@@ -29,33 +34,21 @@ class DocumentPDF:
                 "paginate_output": False # Set to True if you need pagination string separators
             }
         else:
-            self.marker_config = {}
-        self.marker_converter = None
+            self.marker_config = marker_config
+        # Initialize the Marker Converter
+        config_parser = ConfigParser(self.marker_config)
+        converter_kwargs = {
+            "config": config_parser.generate_config_dict(),
+            "artifact_dict": create_model_dict(),
+            "processor_list": config_parser.get_processors(),
+            "renderer": config_parser.get_renderer()
+        }
+        if "llm_service" in self.marker_config:
+            converter_kwargs["llm_service"] = config_parser.get_llm_service()
+        self.marker_converter = PdfConverter(**converter_kwargs)
+        self.text_from_rendered = text_from_rendered
+        print("Marker initialized successfully.")
         
-
-    def _init_marker(self):
-        """Initialize Marker only when needed"""
-
-        if self.marker_converter is None:
-            # Import at runtime For Marker as PDF to Markdown Converter
-            from marker.converters.pdf import PdfConverter
-            from marker.models import create_model_dict
-            from marker.output import text_from_rendered
-            from marker.config.parser import ConfigParser
-            try:
-                config_parser = ConfigParser(self.marker_config)
-                self.marker_converter = PdfConverter(
-                    config=config_parser.generate_config_dict(),
-                    artifact_dict=create_model_dict(),
-                    processor_list=config_parser.get_processors(),
-                    renderer=config_parser.get_renderer(),
-                    llm_service=config_parser.get_llm_service()
-                )
-                self.text_from_rendered = text_from_rendered
-                print("Marker initialized successfully.")
-            except Exception as e:
-                print(f"Failed to initialize Marker: {e}")
-                self.marker_converter = None
 
     @classmethod
     def from_json(cls, json_path: str):
@@ -89,7 +82,6 @@ class DocumentPDF:
             if self.marker_config.get("output_format") != "markdown":
                 raise ValueError("Output format must be set to 'markdown' in the configuration.")
             try:
-                self._init_marker()  # Initialize only when actually needed
                 # Convert PDF to markdown
                 rendered = self.marker_converter(self.pdf_path)
                 # Extract the markdown text and images
@@ -328,7 +320,7 @@ class DocumentMarkdown:
             raise ValueError(f"Mode must be one of {valid_opts}, got '{mode}' instead.")
         elif mode == 'chars':
             text = self.get_markdown(only_text=True, remove_markup=True, remove_references=True)
-            splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=overlap, add_start_index=True, separators=["\n\n", "\n", ".", "!", "?", " ", ""])
+            splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=overlap, add_start_index=True, separators=["\n\n", "\n", ".", "!", "?", " "])
         elif mode == 'newlines':
             text = self.get_markdown(remove_references=True, remove_markup=True)
             splitter = CharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=overlap, separator="\n\n", length_function=len)
