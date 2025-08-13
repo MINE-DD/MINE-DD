@@ -13,57 +13,69 @@ from marker.config.parser import ConfigParser
 from langchain_community.document_loaders.parsers import GrobidParser
 from langchain_community.document_loaders.generic import GenericLoader
 from GrobidArticleExtractor.app import GrobidArticleExtractor
+# GMFT for enhances table extraction
+from gmft.pdf_bindings import PyPDFium2Document # type: ignore
 # For Chunking Texts
 from langchain_core.documents import Document
 from langchain_text_splitters.character import CharacterTextSplitter, RecursiveCharacterTextSplitter
 
 
 class DocumentPDF:
-    def __init__(self, pdf_path: str, marker_config:dict={}, output_format:str="markdown"):
+    def __init__(self, pdf_path: str, marker_converter:Optional[PdfConverter] = None):
         # Basic Attributes
         self.doc_key = None
         self.pdf_path = pdf_path
         self.markdown = None
         self.json_content = None
         self.tables = []
+        self.title = "No Title"
         self.authors = []
-        # Configure Marker to use Ollama as the LLM service
-        if marker_config == {}:
-            self.marker_config = {
-                "output_format": output_format,  # Default output format is markdown, can also be 'json'?
-                "use_llm": True,
-                "llm_service": "marker.services.ollama.OllamaService",
-                "ollama_model": "llama3.2:latest",  # Specify which model you want to use
-                "ollama_base_url": "http://localhost:11434",  # Default Ollama URL,
-                "paginate_output": False # Set to True if you need pagination string separators
-            }
-        else:
-            self.marker_config = marker_config
-        # Initialize the Marker Converter
-        config_parser = ConfigParser(self.marker_config)
-        converter_kwargs = {
-            "config": config_parser.generate_config_dict(),
-            "artifact_dict": create_model_dict(),
-            "processor_list": config_parser.get_processors(),
-            "renderer": config_parser.get_renderer()
-        }
-        if "llm_service" in self.marker_config:
-            converter_kwargs["llm_service"] = config_parser.get_llm_service()
-        self.marker_converter = PdfConverter(**converter_kwargs)
-        self.text_from_rendered = text_from_rendered
-        print("Marker initialized successfully.")
-        
-    def infer_document_title(self):
+        # Marker Converter to Use
+        self.marker_converter = marker_converter
+
+    @classmethod
+    def from_json(cls, json_path: str, marker_converter:Optional[PdfConverter] = None):
+        try:
+            with open(json_path) as f:
+                content = json.load(f)
+        except FileNotFoundError:
+            print(f"File not found: {json_path}. Returning None")
+            return None
+        except json.decoder.JSONDecodeError:
+            print(f"File {json_path} is empty or not a valid JSON! Returning None")
+            return None          
+        try:
+            doc = cls(json_path.replace('.json', '.pdf'), marker_converter)  # Assuming the PDF file has the same name as the JSON file
+            doc.title = content.get("title", "No Title")
+            doc.authors = content.get("authors", [])
+            doc.doc_key = content.get("doc_key", None)
+            doc.markdown = content["markdown"]
+            doc.json_content = content["text_chunks"]
+            doc.tables = [pd.DataFrame(t) for t in content["tables_as_json"]]
+            return doc
+        except Exception as e:
+            print(f"Problem loading {json_path}. Error {e}.\nCheck that the file has the right format. Returning None")
+            return None
+
+    
+    def infer_document_title(self) -> str:
         """
         Infer the document name from the PDF path.
         """
-        if self.pdf_path:
+        # Title has already been set from grobid Metadata
+        if self.title != "No Title":
+            return self.title
+        # Else, infer the title from the PDF path or filename
+        elif self.pdf_path:
             file_title = os.path.basename(self.pdf_path).replace('.pdf', '')
             file_title = re.sub(r'[_-]', ' ', file_title)  # Replace underscores and hyphens with spaces
             title_words = re.findall(r'\w+', file_title)
         else:
             title_words = []
-        return ' '.join(title_words).title() if title_words else "No Title"
+        
+        title = ' '.join(title_words).title() if title_words else "No Title"
+        
+        return title
 
     def make_doc_key(self, first_author: Optional[str] = None) -> str:
         if self.doc_key is not None:
@@ -86,53 +98,23 @@ class DocumentPDF:
             return f"{keywords_part}_{short_hash}"
 
 
-    @classmethod
-    def from_json(cls, json_path: str):
-        try:
-            with open(json_path) as f:
-                content = json.load(f)
-        except FileNotFoundError:
-            print(f"File not found: {json_path}. Returning None")
-            return None
-        except json.decoder.JSONDecodeError:
-            print(f"File {json_path} is empty or not a valid JSON! Returning None")
-            return None          
-
-        try:
-            doc = cls(json_path.replace('.json', '.pdf'))  # Assuming the PDF file has the same name as the JSON file
-            doc.authors = content.get("authors", [])
-            doc.doc_key = content.get("doc_key", None)
-            doc.markdown = content["markdown"]
-            doc.json_content = content["text_chunks"]
-            doc.tables = [pd.DataFrame(t) for t in content["tables_as_json"]]
-            return doc
-        except Exception as e:
-            print(f"Problem loading {json_path}. Error {e}.\nCheck that the file has the right format. Returning None")
-            return None
-
-
     def get_markdown(self) -> str:
         if self.markdown is not None:
             return self.markdown
         elif self.marker_converter is None:
-            raise RuntimeError("Marker converter is not initialized. Please call _init_marker() first.")
+            raise RuntimeError("Marker PDF converter is not initialized. Please call initialize it first.")
         else:
-            if self.marker_config.get("output_format") != "markdown":
-                raise ValueError("Output format must be set to 'markdown' in the configuration.")
-            try:
-                # Convert PDF to markdown
-                rendered = self.marker_converter(self.pdf_path)
-                # Extract the markdown text and images
-                marker_text, _, images = self.text_from_rendered(rendered)
-                self.markdown = marker_text
-                return marker_text
-            except Exception as e:
-                raise RuntimeError(f"Failed to read PDF file: {e}")
+            # Convert PDF to markdown
+            rendered = self.marker_converter(self.pdf_path)
+            # Extract the markdown text and images
+            marker_text, _, images = text_from_rendered(rendered)
+            self.markdown = marker_text
+            return marker_text
     
     def get_grobid_chunks(self, 
                             segment_sentences:bool = True, 
                             return_as_dict:bool = False,
-                            include_detailed_metadata:bool = True, 
+                            grobid_metadata_extractor:Optional[GrobidArticleExtractor] = None, 
                             group_dict_by_section:bool = True) -> dict | list[Document]:
         """
         uses GROBID (instructions here: https://grobid.readthedocs.io/en/latest/Install-Grobid/) 
@@ -151,7 +133,7 @@ class DocumentPDF:
             docs = []
         
         doc_metadata = {}
-        if include_detailed_metadata:
+        if grobid_metadata_extractor is not None:
             try:
                 full_extractor = GrobidArticleExtractor()
                 xml_content = full_extractor.process_pdf(self.pdf_path)
@@ -159,6 +141,7 @@ class DocumentPDF:
                 doc_metadata = result['metadata']
                 assert isinstance(doc_metadata, dict), "Grobid extraction did not return a dictionary."
                 self.authors = doc_metadata['authors']
+                self.title = str(doc_metadata['title'])
             except Exception as e:
                 print("ERROR", e)
                 print("Returning empty metadata dict...")
@@ -220,14 +203,9 @@ class DocumentPDF:
         return docs
 
 
-    def get_document_tables(self) -> list[str]:
+    def get_document_tables(self, detector, formatter) -> list[str]:
         "Uses GMT to extract tables as loadable CSV files from the PDF document. Stores the tables in a list of loadable strings."
         # For Table Extraction
-        from gmft.auto import AutoTableDetector, AutoTableFormatter
-        from gmft.pdf_bindings import PyPDFium2Document # type: ignore
-        
-        detector = AutoTableDetector()
-        formatter = AutoTableFormatter()
         doc = PyPDFium2Document(self.pdf_path)
         tables = []
         for page in doc:
@@ -381,6 +359,51 @@ class DocumentMarkdown:
         return ref_list
 
 
+def init_marker(marker_config:Optional[dict] = None) -> PdfConverter:
+    """
+    Initialize the Marker converter with the given configuration.
+    """
+    if marker_config is None:
+        marker_config = {
+            "output_format": "markdown",  # Default output format is always markdown
+            "use_llm": True,
+            "llm_service": "marker.services.ollama.OllamaService",
+            "ollama_model": "llama3.2:latest",  # Specify which model you want to use
+            "ollama_base_url": "http://localhost:11434",  # Default Ollama URL,
+            "paginate_output": False # Set to True if you need pagination string separators
+        }
+    config_parser = ConfigParser(marker_config)
+    converter_kwargs = {
+        "config": config_parser.generate_config_dict(),
+        "artifact_dict": create_model_dict(),
+        "processor_list": config_parser.get_processors(),
+        "renderer": config_parser.get_renderer()
+    }
+    if "llm_service" in marker_config:
+        converter_kwargs["llm_service"] = config_parser.get_llm_service()
+    print("Initializing Marker Converter with config:", marker_config)
+    converter = PdfConverter(**converter_kwargs)
+    print("Marker Converter initialized successfully.")
+    return converter
+
+def init_grobid_parser():
+    """
+    Initialize the Vanilla Grobid parser for PDF metadata extraction.
+    """
+    grobid_parser = GrobidArticleExtractor()
+    print("Grobid parser initialized successfully.")
+    return grobid_parser
+
+
+def init_table_extractors():
+    """
+    Initialize the GMFT able Extractor for PDF documents.
+    """
+    from gmft.auto import AutoTableDetector, AutoTableFormatter
+    detector = AutoTableDetector()
+    formatter = AutoTableFormatter()
+    print("GMFT Table Extractor initialized successfully.")
+    return detector, formatter
 
 
 def process_from_grobid_chunks(filename, json_content, as_langchain_docs:bool=False, chunk_size:int=1000, overlap:int=100):
