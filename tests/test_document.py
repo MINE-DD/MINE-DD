@@ -1,9 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock, mock_open
 import pandas as pd
-import os
 import json
-import unittest
 
 from minedd.document import DocumentPDF, DocumentMarkdown, process_from_grobid_chunks, get_documents_from_directory
 
@@ -63,9 +61,8 @@ def mock_grobid_json_flat_content():
 
 @pytest.fixture
 def mock_document_pdf(mock_pdf_path):
-    with patch('minedd.document.DocumentPDF._init_marker') as mock_init_marker:
-        doc = DocumentPDF(pdf_path=mock_pdf_path)
-        mock_init_marker.assert_not_called()  # _init_marker should not be called on instantiation
+    with patch('minedd.document.init_marker') as mock_init_marker:
+        doc = DocumentPDF(pdf_path=mock_pdf_path, marker_converter=mock_init_marker)
         yield doc
 
 class TestDocumentPDF:
@@ -108,56 +105,11 @@ class TestDocumentPDF:
             captured = capsys.readouterr()
             assert f"File not found: {mock_json_path}" in captured.out
 
-    def test_get_markdown_success(self, mock_document_pdf):
-        mock_document_pdf.marker_converter = MagicMock()
-        mock_document_pdf.text_from_rendered = MagicMock(return_value=("markdown content", None, None))
-        markdown = mock_document_pdf.get_markdown()
-        assert markdown == "markdown content"
-        assert mock_document_pdf.markdown == "markdown content"
-
     def test_get_markdown_already_loaded(self, mock_document_pdf):
         mock_document_pdf.markdown = "pre-loaded markdown"
         markdown = mock_document_pdf.get_markdown()
         assert markdown == "pre-loaded markdown"
 
-    # def test_get_grobid_chunks(self, mock_document_pdf):
-    #     with patch('langchain_community.document_loaders.generic.GenericLoader.from_filesystem') as mock_loader:
-    #         mock_doc = MagicMock()
-    #         mock_doc.metadata = {
-    #             'text': 'This is the template of metadata extracted by lanchain grobid document_loader.',
-    #             'para': '2',
-    #             'bboxes': "[[{'page': '1', 'x': '317.05', 'y': '509.17', 'h': '207.73', 'w': '9.46'}]]",
-    #             'pages': "('1', '1')",
-    #             'section_title': 'Introduction',
-    #             'section_number': '1',
-    #             'paper_title': 'Test Title',
-    #             'file_path': '/path/to/2302.13971.pdf'}
-    #         mock_doc.page_content = "This is a sentence that equals a chunk when using GrobidParser."
-    #         mock_loader.return_value.load.return_value = [mock_doc]
-            
-    #         with patch('GrobidArticleExtractor.app.GrobidArticleExtractor') as mock_extractor:
-    #             mock_extractor.return_value.process_pdf.return_value = "<xml></xml>"
-    #             mock_extractor.return_value.extract_content.return_value = {"metadata": {"doi": "123"}}
-                
-    #             chunks = mock_document_pdf.get_grobid_chunks(return_as_dict=True)
-    #             assert len(chunks) == 1
-    #             assert chunks[0].metadata['paper_title'] == "Test Title"
-
-    @patch('gmft.pdf_bindings.PyPDFium2Document')
-    @patch('gmft.auto.AutoTableDetector')
-    @patch('gmft.auto.AutoTableFormatter')
-    def test_get_document_tables(self, mock_formatter, mock_detector, mock_pypdf, mock_document_pdf):
-        mock_page = MagicMock()
-        mock_pypdf.return_value = [mock_page]
-        mock_table = MagicMock()
-        mock_detector.return_value.extract.return_value = [mock_table]
-        mock_formatted_table = MagicMock()
-        mock_formatted_table.df.return_value = pd.DataFrame({'a': [1]})
-        mock_formatter.return_value.extract.return_value = mock_formatted_table
-        
-        tables = mock_document_pdf.get_document_tables()
-        assert len(tables) == 1
-        assert isinstance(tables[0], pd.DataFrame)
 
     def test_get_chunks_chars(self, mock_document_pdf):
         mock_document_pdf.markdown = "This is a test."

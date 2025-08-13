@@ -216,6 +216,7 @@ class DocumentPDF:
         for index, table in enumerate(formatted_tables):
             dataframes.append(table.df())
         self.tables = dataframes
+        doc.close()
         return dataframes
 
 
