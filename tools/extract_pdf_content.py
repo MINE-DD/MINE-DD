@@ -24,7 +24,7 @@
     Execution examples: 
      - Run Simplest pipeline (Marker without LLM): python tools/extract_pdf_content.py --directory "/path/to/pdfs/" --mode simple
      - Run Grobid only: python tools/extract_pdf_content.py --directory "/path/to/pdfs/" --mode grobid
-     - Run Full pipeline (Grobid + Marker): python tools/extract_pdf_content.py --directory "/path/to/pdfs/" --llm "llama3.2:latest" --mode all
+     - Run Full pipeline (Grobid + Marker + LLM): python tools/extract_pdf_content.py --directory "/path/to/pdfs/" --llm "llama3.2:latest" --mode all
 
      The converted content will be saved as JSON files in the same directory as the PDFs.
 

@@ -104,12 +104,17 @@ class DocumentPDF:
         elif self.marker_converter is None:
             raise RuntimeError("Marker PDF converter is not initialized. Please call initialize it first.")
         else:
-            # Convert PDF to markdown
-            rendered = self.marker_converter(self.pdf_path)
-            # Extract the markdown text and images
-            marker_text, _, images = text_from_rendered(rendered)
-            self.markdown = marker_text
-            return marker_text
+            try:
+                # Convert PDF to markdown
+                rendered = self.marker_converter(self.pdf_path)
+                # Extract the markdown text and images
+                marker_text, _, images = text_from_rendered(rendered)
+                self.markdown = marker_text
+                return marker_text
+            except Exception as e:
+                print(f"Error converting PDF {self.pdf_path} to Markdown: {e}")
+                self.markdown = ""
+                return ""
     
     def get_grobid_chunks(self, 
                             segment_sentences:bool = True, 
