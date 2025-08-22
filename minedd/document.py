@@ -156,8 +156,11 @@ class DocumentPDF:
             return docs
 
         if return_as_dict and group_dict_by_section:
+            doc_key = self.make_doc_key()
+            self.title = docs[0].metadata.get("paper_title", self.infer_document_title())
             docs_dict = {
-                "title": docs[0].metadata.get("paper_title", "NoTitle"),
+                "title": self.title,
+                "doc_key": doc_key,
                 "grouped_by_section": group_dict_by_section,
                 "sections_titles": [],
                 "sections_content": {}
@@ -170,6 +173,7 @@ class DocumentPDF:
                 chunk_index = i if segment_sentences else int(doc.metadata['para'])
                 row = {
                     "text": doc.page_content.replace('\n', ' '),
+                    "parent_doc_key": doc_key,
                     "pages": pages_str,
                     "chunk_index": chunk_index,
                     "section":section_title,
@@ -183,8 +187,11 @@ class DocumentPDF:
             docs = docs_dict
             self.json_content = docs_dict
         elif return_as_dict:
+            doc_key = self.make_doc_key()
+            self.title = docs[0].metadata.get("paper_title", self.infer_document_title())
             docs_dict = {
-                "title": docs[0].metadata.get("paper_title", "NoTitle"),
+                "title": self.title,
+                "doc_key": doc_key,
                 "grouped_by_section": group_dict_by_section,
                 "chunks": [],
                 }
@@ -196,6 +203,7 @@ class DocumentPDF:
                 chunk_index = i if segment_sentences else int(doc.metadata['para'])
                 row = {
                     "text": doc.page_content.replace('\n', ' '),
+                    "parent_doc_key": doc_key,
                     "pages": pages_str,
                     "chunk_index": chunk_index,
                     "section":section_title,
@@ -419,6 +427,7 @@ def process_from_grobid_chunks(filename, json_content, as_langchain_docs:bool=Fa
             text = " ".join([c['text'] for c in batch])
             metadata = {
                 "source": filename,
+                "parent_doc_key": parent_doc_key,
                 "title": doc_title,
                 "pages": f"{batch[0]['pages'].split('-')[0]}-{batch[-1]['pages'].split('-')[-1]}",
                 "chunk_index": f"{batch[0]['chunk_index']}-{batch[-1]['chunk_index']}",
@@ -432,11 +441,13 @@ def process_from_grobid_chunks(filename, json_content, as_langchain_docs:bool=Fa
             return doc
         else:
             return [c['text'] for c in batch]
-    # json_content = self.json_content
+    
     if json_content is None:
-        raise ValueError("No JSON content available. Please run 'get_grobid_chunks' first.")
+        print(f"WARNING: No JSON content available for '{filename}'. Please run 'get_grobid_chunks' first. Returning empty list...")
+        return []
     print("Processing JSON content into chunks of size ", chunk_size, " sentences with overlap ", overlap)
     doc_title = json_content['title']
+    parent_doc_key = json_content['doc_key']
     is_grouped_by_section = json_content['grouped_by_section']
     chunks_key = 'sections_content' if is_grouped_by_section else 'chunks'
     step_size = max(1, chunk_size - overlap)  # Ensure step_size >= 1
@@ -474,7 +485,7 @@ def get_documents_from_directory(directory, extensions=['.json'], chunk_size=10,
                 )
             documents.extend(paper_chunks)
         else:
-            raise NotImplementedError("Only Document JSONs are supported (Created by the Document.get_grobid_chunks() method)")
+            print(f"WARNING: Unsupported file type for {filename}. Only Document JSONs are supported (Created by the Document.get_grobid_chunks() method). Skipping file...")
 
     print(f"Processed {processed_files} files, extracted {len(documents)} Document chunks")
     return documents

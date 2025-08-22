@@ -1,12 +1,13 @@
 # https://python.langchain.com/api_reference/community/vectorstores/langchain_community.vectorstores.faiss.FAISS.html#langchain_community.vectorstores.faiss.FAISS
 # %pip install --quiet --upgrade langchain-text-splitters langchain-community langgraph 
 # pip install -qU "langchain[cohere]"
-# pip install -qU langchain-huggingface OR langchain-ollama
+# pip install -qU langchain-huggingface langchain-ollama
 # pip install faiss-cpu
 # pip install cohere
 
+import re
 import os
-import cohere
+from typing import Optional
 import faiss
 import numpy as np
 from uuid import uuid4
@@ -16,11 +17,14 @@ import string
 from tqdm import tqdm
 from pathlib import Path
 
+from langchain.retrievers.document_compressors.cross_encoder_rerank import CrossEncoderReranker
+from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 from langchain_ollama import OllamaEmbeddings
 from langchain.chat_models import init_chat_model
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.vectorstores import FAISS
 from langchain_community.docstore.in_memory import InMemoryDocstore
+from langchain_core.documents import Document
 from minedd.document import get_documents_from_directory
 from dotenv import load_dotenv
 load_dotenv(override=True)
@@ -29,7 +33,7 @@ load_dotenv(override=True)
 CANNOT_ANSWER_PHRASE = "Sorry, I do not know the answer for this =("
 CITATION_KEY_CONSTRAINTS = (
     "## Valid citation examples: \n"
-    "- [Global_Sea pages 12-12]\n"
+    "- [Dhervs_AreHospitalizations_07a4df pages 6-6]\n"
     "- [Are_hospit pages 3-4] \n"
     "- [Global_Sea pages 7-10] \n"
     "## Invalid citation examples: \n"
@@ -47,8 +51,8 @@ QA_VANILLA_PROMPT = (
     "Write an answer based on the context. "
     "If the context provides insufficient information reply "
     f'"{CANNOT_ANSWER_PHRASE}." '
-    "For each part of your answer, indicate which sources most support "
-    "it via citation keys at the end of sentences, like {example_citation}. "
+    "For each part of your answer, indicate which sources support the claims you make. "
+    "Each context has a citation key at the end of it, which looks like {example_citation}. "
     "Only cite from the context above and only use the citation keys from the context. "
     f"{CITATION_KEY_CONSTRAINTS}"
     "Do not concatenate citation keys, just use them as is. "
@@ -59,8 +63,6 @@ QA_VANILLA_PROMPT = (
     "onto Wikipedia, so do not add any extraneous information.\n\n"
     "Answer ({answer_length}):"
 )
-
-co = cohere.Client(os.environ.get("COHERE_API_KEY"))
 
 def bm25_tokenizer(text):
     tokenized_doc = []
@@ -79,43 +81,27 @@ def get_bm25_index(texts):
     return bm25
 
 
-def keyword_and_reranking_search(texts, bm25, query, top_k=3, num_candidates=10):
-    print("Input question:", query)
-
-    ##### BM25 search (lexical search) #####
-    bm25_scores = bm25.get_scores(bm25_tokenizer(query))
-    top_n = np.argpartition(bm25_scores, -num_candidates)[-num_candidates:]
-    bm25_hits = [{'corpus_id': idx, 'score': bm25_scores[idx]} for idx in top_n]
-    bm25_hits = sorted(bm25_hits, key=lambda x: x['score'], reverse=True)
-
-    print("Top-3 lexical search (BM25) hits")
-    for hit in bm25_hits[0:top_k]:
-        print("\t{:.3f}\t{}".format(hit['score'], texts[hit['corpus_id']].replace("\n", " ")))
-
-    #Add re-ranking
-    docs = [texts[hit['corpus_id']] for hit in bm25_hits]
-
-    print(f"\nTop-3 hits by rank-API ({len(bm25_hits)} BM25 hits re-ranked)")
-    results = co.rerank(query=query, documents=docs, top_n=top_k, return_documents=True)
-    return results.results
-
-
 class PersistentFAISS:
     def __init__(self, index_path, index, embeddings_engine, include_bm25=False):
         self.index_path = index_path
         self.embeddings = embeddings_engine
+        # Vector index
         self.vector_index = index
         self.vector_store = None
+        # BM25 index (In-memory)
         self.include_bm25 = include_bm25
         self.bm25_index = None
+        # Explicit document list to retrieve from BM25 indices
+        self.documents_list = []
         
-    def initialize(self, documents=None):
+    def initialize(self, documents:Optional[list[Document]]=None):
         """Initialize or load the vector store"""
         if self._index_exists():
             self._load_existing_index()
+            self.documents_list = list(self.get_all_documents())
             self._load_bm25_index() if self.include_bm25 else None
         elif documents is None:
-            print("No existing index found, creating an empty new one...") 
+            print(f"No existing index found at {self.index_path}, creating an empty new one...") 
             self.vector_store = FAISS(
                 embedding_function=self.embeddings,
                 index=self.vector_index,
@@ -123,9 +109,11 @@ class PersistentFAISS:
                 index_to_docstore_id={},
             )
         else:
-            print(f"No existing index found, creating a new one with {len(documents)} documents...")    
+            print(f"No existing index found at {self.index_path}, creating a new one with {len(documents)} documents...")    
             self._create_new_index(documents)
-            self._load_bm25_index() if self.include_bm25 else None
+            if self.include_bm25:
+                self.documents_list = documents
+                self._load_bm25_index()
     
 
     def _index_exists(self):
@@ -144,7 +132,7 @@ class PersistentFAISS:
 
     def _load_bm25_index(self):
         tokenized_corpus = []
-        texts = [doc.page_content for doc in self.get_all_documents()]
+        texts = [doc.page_content for doc in self.documents_list]
         for passage in tqdm(texts):
             tokenized_corpus.append(bm25_tokenizer(passage))
         self.bm25_index = BM25Okapi(tokenized_corpus)
@@ -179,14 +167,42 @@ class PersistentFAISS:
         self._save_index()
         print(f"Added {len(documents)} documents and saved index")
     
-    def search(self, query, k=3, hybrid=False, num_candidates=10):
+    def keyword_and_reranking_search(self, query, top_k=3, num_candidates=10, verbose=False):
+        print(f"Input question: {query}\nTop-K: {top_k}\nNum Candidates: {num_candidates}", query)
+        if self.vector_store is None or self.bm25_index is None:
+            raise ValueError("Vector store and BM25 index need to be initialized to use hybrid search!")
+
+        ##### BM25 search (lexical search) #####
+        bm25_scores = self.bm25_index.get_scores(bm25_tokenizer(query))
+        top_n = np.argpartition(bm25_scores, -num_candidates)[-num_candidates:]
+        bm25_hits = [{'corpus_id': idx, 'score': bm25_scores[idx]} for idx in top_n]
+        bm25_hits = sorted(bm25_hits, key=lambda x: x['score'], reverse=True)
+
+        if verbose:
+            print("Top-K lexical search (BM25) hits")
+            for hit in bm25_hits[0:top_k]:
+                print("\t{:.3f}\t{}".format(hit['score'], self.documents_list[hit['corpus_id']].page_content.replace("\n", " ")))
+
+        # Reranking with HuggingFace
+        docs_for_reranking = [self.documents_list[hit['corpus_id']] for hit in bm25_hits]
+        model = HuggingFaceCrossEncoder(model_name="BAAI/bge-reranker-base")
+        reranker = CrossEncoderReranker(model=model, top_n=top_k)
+        reranked_docs = reranker.compress_documents(documents=docs_for_reranking, query=query)
+        
+        if verbose:
+            print("Top-K reranked hits")
+            for doc in reranked_docs:
+                print("\t{}".format(doc.page_content.replace("\n", " ")))
+        
+        return reranked_docs
+
+    def search(self, query, k, hybrid=False, num_candidates=10, verbose=False):
         """Perform similarity search"""
         if self.vector_store is None:
             raise ValueError("Vector store not initialized")
         
         if hybrid and self.include_bm25:
-            texts = [doc.page_content for doc in self.get_all_documents()]
-            return keyword_and_reranking_search(texts, self.bm25_index, query, top_k=k, num_candidates=10)
+            return self.keyword_and_reranking_search(query, top_k=k, num_candidates=num_candidates, verbose=verbose)
         else:
             return self.vector_store.similarity_search(query, k=k)
 
@@ -205,28 +221,53 @@ class SimpleRAG:
             raise ValueError("Vector store not initialized")
         self.vector_store.add_documents(documents)
     
-    def query(self, question, k):
+    def _make_context_key(self, document: Document):
+        """Create a unique key for the document based on its metadata"""
+        # doc_title = document.metadata.get('title', 'No Title').replace(' ', '_')[:10]
+        doc_pages = document.metadata.get('pages')
+        doc_key = document.metadata.get('parent_doc_key', 'NoKEY')
+        full_context = f"{document.page_content} [{doc_key} pages {doc_pages}]"
+        return full_context
+
+    def _clean_context(self, context: str):
+        """Remove original citation indices form the oriignal text, as it may confuse the LLM"""
+        # Remove parentheses containing comma-separated numbers, e.g. (2, 3, 11, 12)
+        context = re.sub(r'\(\s*\d+(?:\s*,\s*\d+)*\s*\)', '', context) 
+        # Remove square brackets with numbers, e.g. [2, 3, 11, 12]
+        context = re.sub(r'(?:\[\d+\])+', '', context)
+        # Remove standalone numbers in square brackets, e.g. [2], [3]
+        context = re.sub(r'\[\d+\]', '', context)
+        # Remove standalone numbers in parentheses, e.g. (2), (3)
+        context = re.sub(r'\(\d+\)[\.\,]+', '', context)
+        return context
+
+    def query(self, question, k, hybrid=False, num_candidates=10, answer_length=200, verbose=False):
         """Query the knowledge graph with natural language"""
         # Retrieve closest passages (results are a list of Documents)           
-        results = self.vector_store.search(question, k=k)
-        context = "\n".join([f"{r.page_content} [{r.metadata.get('title', 'No Title').replace(' ', '_')[:10]} pages {r.metadata.get('pages')}]" for r in results])
-        # print(">>>",context)
+        results = self.vector_store.search(question, k=k, hybrid=hybrid, num_candidates=num_candidates, verbose=verbose)
+        context = "\n\n".join([self._make_context_key(r) for r in results])
+        print(f"Retrieved {len(results)} results")
+        if verbose:
+            print(f"Retrieved {len(results)} results for question: {question}")
+            print("\t>>>",context)
         # generate Answer based on results
         response = self.chain.invoke({
             "context": context,
-            "question": question,
-            "example_citation": "[Are_hospit pages 13-14]", 
-            "answer_length": 200
-
+            "question": f"{question} Please also refer to the sources of your claims (according to the context provided to you)",
+            "example_citation": "[Dhervs_AreHospitalizations_07a4df pages 6-6]", 
+            "answer_length": answer_length
         })
         return results, response.content
 
 
 def run_vanilla_rag(embeddings, llm):
+
+    PAPERS_DIRECTORY = Path.home() / "papers_minedd_mini"
+    SAVE_VECTOR_PATH = "minedd_test_index"
     
     # Index and Store Embeddings
     index = faiss.IndexFlatL2(len(embeddings.embed_query("hello world")))
-    vector_store_path = "minedd_test_index"
+    vector_store_path = SAVE_VECTOR_PATH
     vector_store = PersistentFAISS(
         index_path=vector_store_path,
         index=index, 
@@ -248,26 +289,33 @@ def run_vanilla_rag(embeddings, llm):
     else:
         print(f"No existing vector store found at {vector_store_path}, Chunking and Loading Documents to create one...")
         docs = get_documents_from_directory(
-            directory=Path.home() / "papers_minedd",
+            directory=PAPERS_DIRECTORY,
             extensions=['.json'],
-            chunk_size=8, # Number of sentences to merge into one Document
+            chunk_size=10, # Number of sentences to merge into one Document
             overlap=2 # Number of sentences to overlap between chunks
         )
         vector_store.initialize(documents=docs)
 
     # 0 - Query Vector Store
-    query = "How is rotavirus related to seasonality? Please also refer to the sources of your claims (according to the context provided to you)"
+    query = "How is campylobacter related to seasonality?"
 
-    # 1- Retrieval
+    ## 1- Retrieval Options
     # We'll use embedding search. But ideally we'd do hybrid
-    print("\n\n----- FAISS Index Vector Search\n\n")
-    results = vector_store.search(query, k=3)
+    print("\n\n----- FAISS Index Simple Vector Search\n\n")
+    results = vector_store.search(query, k=5, hybrid=False, num_candidates=30, verbose=True)
 
     for r in results:
         print(r)
     
+    print("\n\n----- FAISS Index Hybrid Vector Search\n\n")
+    results = vector_store.search(query, k=5, hybrid=True, num_candidates=30, verbose=True)
+
+    for r in results:
+        print(r)
+    
+    ## 2 - Retrieval + Generation
     print("\n\n----- RAG Response \n\n")
-    contexts, response = rag_engine.query(question=query, k=3)
+    contexts, response = rag_engine.query(question=query, k=5, hybrid=True, num_candidates=20, verbose=True)
     print("\n\n",response)
 
 
@@ -278,11 +326,9 @@ if __name__ == "__main__":
     # model_name="gemini-2.5-flash-lite-preview-06-17",
     # model_provider="google_genai"
     ### OR
-    # model_name="llama3.2:latest"
-    # model_provider="ollama"
+    model_name="llama3.2:latest"
+    model_provider="ollama"
 
-    model_name="command-r-plus"
-    model_provider="cohere"
 
     run_vanilla_rag(
         embeddings=OllamaEmbeddings(model="mxbai-embed-large:latest"),
