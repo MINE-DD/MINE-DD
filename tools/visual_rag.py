@@ -18,13 +18,16 @@ dotenv.load_dotenv('../notebooks/.env')  # Load environment variables from .env 
 PAPERS_DIRECTORY = Path.home() / "papers_campylo/" # Directory containing the PDF papers
 EMBEDDING = "mxbai-embed-large:latest" # Embedder model to use
 VECTOR_STORE_PATH = "../minedd/outputs/minedd_campylo_index"
+CHUNK_SIZE = 10  # Number of sentences to merge into one Document
+CHUNK_OVERLAP = 4     # Number of sentences to overlap between chunks
 
 # Define available models
 AVAILABLE_MODELS = [
     "ollama/llama3.2:latest",
     "google_genai/gemini-2.5-flash-lite-preview-06-17", 
 ]
-
+LLM_TEMPERATURE = 0.0  # Temperature for LLM responses
+LLM_MAX_TOKENS = 8000  # Max tokens for LLM responses
 
 # Initialize the Query engine with selected model
 @st.cache_resource
@@ -34,9 +37,9 @@ def initialize_engine(selected_model):
     #Generative Model
     llm = init_chat_model(model_name, 
                           model_provider=model_provider,
-                            temperature=0.0,
+                            temperature=LLM_TEMPERATURE,
                             max_retries=2,
-                            max_output_tokens=8000
+                            max_output_tokens=LLM_MAX_TOKENS
                           )
     # Embeddings model
     embeddings = OllamaEmbeddings(model=EMBEDDING)
@@ -67,8 +70,8 @@ def initialize_engine(selected_model):
         docs = get_documents_from_directory(
             directory=PAPERS_DIRECTORY,
             extensions=['.json'],
-            chunk_size=8, # Number of sentences to merge into one Document
-            overlap=2 # Number of sentences to overlap between chunks
+            chunk_size=CHUNK_SIZE,
+            overlap=CHUNK_OVERLAP
         )
         vector_store.initialize(documents=docs)
 
@@ -82,7 +85,13 @@ def get_documents():
     if os.path.exists(PAPERS_DIRECTORY):
         for filename in os.listdir(PAPERS_DIRECTORY):
             if filename.endswith(('.pdf', '.md')):
-                documents[filename] = get_document_parsed_content(filename)
+                doc_key = filename
+                document = get_document_parsed_content(filename)
+                if document:
+                    doc_key = document.get('doc_key', filename)
+                # Add document JSON to the Parent Dict of documents...
+                document["filename"] = filename
+                documents[doc_key] = document 
     return documents
 
 
@@ -97,7 +106,26 @@ def get_document_parsed_content(filename):
     return doc_content
 
 
-
+@st.cache_data
+def get_document_tables(document_key):
+    filename = documents.get(document_key, {}).get('filename', None)
+    if filename is None:
+        return []
+    doc_json_path = PAPERS_DIRECTORY / f"{filename[:-4]}.json"
+    doc_tables = []
+    if os.path.exists(doc_json_path):
+        doc_content = json.load(open(doc_json_path, 'r', encoding='utf-8'))
+        tables = doc_content.get('tables_as_json', [])
+        for t in tables:
+            try:
+                table_pd = pd.DataFrame(t)
+                doc_tables.append(table_pd)
+            except Exception as e:
+                print("Could not convert table to DataFrame", e)
+                continue
+    else:
+        print("Problem loading document content from", doc_json_path)
+    return doc_tables
 
 # Streamlit app
 st.title('Paper Querier - Simple RAG Edition')
@@ -127,20 +155,17 @@ with st.expander("View Available Documents", expanded=False):
     st.write(len(documents))
     try:
         show_docs_df = pd.DataFrame([
-            (documents[k].get('doc_key', 'NoKey'),
-             documents[k].get('title', ", ".join(documents[k].keys())), 
-             k) for k in documents.keys()], columns=['DocKey', 'Title', 'Document Filename'])
+            (k,
+             documents[k].get('title', "NoTitle"), 
+             documents[k].get('filename', 'NoFilename')) for k in documents.keys()], columns=['DocKey', 'Title', 'Document Filename'])
     except KeyError:
-        show_docs_df = pd.DataFrame(columns=['Title', 'Document Filename'])
+        show_docs_df = pd.DataFrame(columns=['DocKey', 'Title', 'Document Filename'])
         st.error("Error loading document titles. Please check the document structure.")
 
     
     if documents:
         st.write(f"**Total Documents:** {len(documents)}")
         st.dataframe(show_docs_df, use_container_width=True)
-        # # Display documents in a nice format
-        # for i, doc_name in enumerate(documents, 1):
-        #     st.write(f"**{i}.** {doc_name}")
     else:
         st.info("No documents available")
 
@@ -191,6 +216,8 @@ if search_button and question:
             # Answer section
             st.subheader('💡 Answer')
             st.markdown(response)
+
+            tables = None
             
             # # # Sources section
             # shown_citations = set()
@@ -203,14 +230,28 @@ if search_button and question:
             
             # Original Contexts section (if available). But this is not nice because PyPDF does not parse well the contexts so they are crappy
             if contexts:
+                citation_list = []
                 st.markdown("---")
                 st.header('🔗 Relevant Contexts')
                 for i, langchain_doc in enumerate(contexts):
-                    st.write(f"### {i+1}) {langchain_doc.metadata['title']}\n#### {langchain_doc.metadata['section']}. Pages: {langchain_doc.metadata['pages']}")
-                    st.write(f"* **Content**: {langchain_doc.page_content}")
-                    # for k, v in langchain_doc.metadata.items():
-                    #     if k not in ["title", "section"]:
-                    #         st.write(f"* **{k.title()}**: {v}")
+                    dk = langchain_doc.metadata.get('parent_doc_key', 'NoDocKey')
+                    citation_list.append(dk)
+                    with st.expander(f"Context {i+1} - {dk}"):
+                        # with st.expander("Original Context:"):
+                        st.write(f"#### {langchain_doc.metadata['title']}\n##### {langchain_doc.metadata['section']}. Pages: {langchain_doc.metadata['pages']}")
+                        st.write(f"* **Content**: {langchain_doc.page_content}")
+                        with st.expander("Main Claims:"):
+                            st.write("This is where the summary of claims in the context will go (not implemented yet)")
+            if len(citation_list) > 0:
+                st.markdown("---")
+                st.header('🗂️ Related Tables')
+                for cit_key in set(citation_list):
+                    tables = get_document_tables(cit_key)
+                    with st.expander(f"**- {cit_key}**"):
+                        st.subheader(f"{documents.get(cit_key, {}).get('title', 'NoTitle')}")
+                        for i, t in enumerate(tables):
+                            st.subheader(f"Table {i+1}")
+                            st.dataframe(t, use_container_width=True)
                     
         except Exception as e:
             st.error(f'An error occurred: {str(e)}')
