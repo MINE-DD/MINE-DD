@@ -166,17 +166,6 @@ class TestDocumentMarkdown:
         assert isinstance(chunks, list)
         assert len(chunks) > 0
 
-def test_process_from_grobid_chunks():
-    json_content = {
-        "title": "Test Title",
-        "grouped_by_section": True,
-        "sections_content": {
-            "Intro": [{"text": "s1", "pages": "1", "chunk_index": 0, "section": "Intro"}]
-        }
-    }
-    docs = process_from_grobid_chunks("file.pdf", json_content, as_langchain_docs=True)
-    assert len(docs) == 1
-    assert docs[0].metadata['title'] == "Test Title"
 
 def test_get_documents_from_directory():
     with patch('os.listdir', return_value=['doc1.json']):

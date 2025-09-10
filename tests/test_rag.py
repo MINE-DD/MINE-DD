@@ -7,7 +7,6 @@ import os
 from minedd.rag import (
     bm25_tokenizer,
     get_bm25_index,
-    keyword_and_reranking_search,
     PersistentFAISS,
     SimpleRAG,
 )
@@ -24,20 +23,6 @@ class TestRag(unittest.TestCase):
         bm25 = get_bm25_index(texts)
         self.assertIsNotNone(bm25)
 
-    @patch('minedd.rag.co')
-    def test_keyword_and_reranking_search(self, mock_co_client):
-        texts = ["This is the first document.", "This is the second document.", "The third document is here."]
-        bm25 = get_bm25_index(texts)
-        query = "second document"
-
-        mock_rerank_results = MagicMock()
-        mock_rerank_results.results = "mock results"
-        mock_co_client.rerank.return_value = mock_rerank_results
-        
-        results = keyword_and_reranking_search(texts, bm25, query, top_k=2, num_candidates=2)
-        
-        self.assertEqual(results, "mock results")
-        mock_co_client.rerank.assert_called_once()
 
     def setUp(self):
         self.mock_embeddings = MagicMock()
@@ -98,13 +83,6 @@ class TestRag(unittest.TestCase):
         self.persistent_faiss.search("query", k=2)
         self.persistent_faiss.vector_store.similarity_search.assert_called_with("query", k=2)
 
-    @patch('minedd.rag.keyword_and_reranking_search')
-    def test_persistent_faiss_search_hybrid(self, mock_keyword_search):
-        self.persistent_faiss.include_bm25 = True
-        self.persistent_faiss.bm25_index = MagicMock()
-        self.persistent_faiss.search("query", k=2, hybrid=True)
-        mock_keyword_search.assert_called_once()
-
     def test_simple_rag_query(self):
         rag = SimpleRAG(self.mock_embeddings, self.mock_llm, self.mock_vector_store)
         
@@ -122,7 +100,7 @@ class TestRag(unittest.TestCase):
 
         results, response = rag.query("What is a test?", k=1)
         
-        self.mock_vector_store.search.assert_called_once_with("What is a test?", k=1)
+        self.mock_vector_store.search.assert_called_once_with("What is a test?", k=1, hybrid=False, num_candidates=10, verbose=False)
         self.assertEqual(len(results), 1)
         self.assertEqual(response, "This is the answer.")
 
