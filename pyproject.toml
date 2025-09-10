@@ -40,11 +40,19 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "langchain>=0.3.25",
     "langchain-community>=0.3.24",
+    "langchain-google-genai>=2.1.6",
+    "langchain-huggingface>=0.2.0",
+    "langchain-ollama>=0.3.2",
+    "langchain-text-splitters>=0.3.8",
     "langgraph>=0.4.8",
     "gmft>=0.4.1",
     "marker-pdf>=1.6.2",
     "ollama>=0.3.3",
-    "httpx>=0.27.2"
+    "httpx>=0.27.2",
+    "streamlit==1.46.0",
+    "faiss-cpu>=1.11.0",
+    "GrobidArticleExtractor>=0.7.0",
+    "rank-bm25==0.2.2"
 ]
 
 [project.optional-dependencies]

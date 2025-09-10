@@ -46,6 +46,13 @@ git clone git@github.com:MINE-DD/MINE-DD.git
 cd MINE-DD
 ```
 
+2. Create a new virtual environment:
+
+```console
+python -m venv .venv
+source .venv/bin/activate
+```
+
 2. Install the package:
 
 ```console
