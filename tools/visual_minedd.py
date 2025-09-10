@@ -10,15 +10,14 @@ import re
 from paperqa.settings import Settings, AgentSettings, ParsingSettings
 from minedd.embeddings import Embeddings
 from minedd.query import Query
-from pathlib import Path
 import dotenv
-dotenv.load_dotenv('../notebooks/.env')  # Load environment variables from .env file
+dotenv.load_dotenv('minedd/.env')  # Load environment variables from .env file
 
 # Important paths and configurations
-PAPERS_DIRECTORY = Path.home() / "papers_minedd/" # Directory containing the PDF papers
-EMBEDDING = "ollama/mxbai-embed-large:latest" # Embedder model to use
-EMBEDDINGS_DIR = "../notebooks/outputs/minedd-embeddings.pkl" # Pickled file containing the embeddings generated with minedd (paperQA)
-OUTPUTS_DIRECTORY = '../notebooks/outputs/'  # Directory for output files
+PAPERS_DIRECTORY = os.getenv("PAPERS_DIRECTORY", None) # Directory containing the PDF papers
+EMBEDDING = os.getenv("LLM_EMBEDDER", "mxbai-embed-large:latest") # Embedder model to use
+EMBEDDINGS_DIR = os.getenv("MINEDD_EMBEDDINGS_PATH", "minedd-embeddings.pkl") # Pickled file containing the embeddings generated with minedd (paperQA)
+OUTPUTS_DIRECTORY = 'outputs'  # Directory for output files
 
 # Define available models
 AVAILABLE_MODELS = [
@@ -26,10 +25,30 @@ AVAILABLE_MODELS = [
     "gemini/gemini-2.5-flash-lite-preview-06-17", 
 ]
 
+if not PAPERS_DIRECTORY or not os.path.exists(PAPERS_DIRECTORY):
+    st.error(f"The provided Paper Directory '{PAPERS_DIRECTORY}' does not exist!")
+    exit() 
 
 # Initialize the Query engine with selected model
 @st.cache_resource
 def initialize_engine(selected_model):
+
+    # If the PaperQA inted does not exist we have to create it...
+    created_embeddings = None
+    if EMBEDDINGS_DIR and not os.path.exists(EMBEDDINGS_DIR):
+        print(f"PaperQA Embeddings index {EMBEDDINGS_DIR} does not exist. Loading papers and creating a new one...")
+        created_embeddings = Embeddings(
+            model="ollama/llama3.2:latest", # this param is irrelevant at this step anyway...
+            embedding_model=f"ollama/{EMBEDDING}",
+            paper_directory=PAPERS_DIRECTORY, # type: ignore
+            output_embeddings_path=EMBEDDINGS_DIR,
+        )
+        pdf_file_list = created_embeddings.prepare_papers()
+        print(f"Found {len(pdf_file_list)} papers in the directory. Creating embeddings...")
+        created_embeddings.process_papers(pdf_file_list)
+        print(f"Embeddings created and saved to {EMBEDDINGS_DIR}")
+        print("CREATED", created_embeddings)
+        del created_embeddings
 
     local_llm_config = {
         "model_list": [
@@ -62,8 +81,8 @@ def initialize_engine(selected_model):
         llm_config=local_llm_config,
         summary_llm=selected_model,
         summary_llm_config=local_llm_config,
-        paper_directory=PAPERS_DIRECTORY,
-        embedding=EMBEDDING,
+        paper_directory=PAPERS_DIRECTORY, # type: ignore
+        embedding=f"ollama/{EMBEDDING}",
         agent=AgentSettings(
             agent_llm=selected_model,
             agent_llm_config=local_llm_config,
@@ -73,12 +92,12 @@ def initialize_engine(selected_model):
             chunk_size=2500,
             overlap=250
         ),
-        prompts={"use_json": False}
+        prompts={"use_json": False} # type: ignore
     )
 
     engine = Query(
         model=selected_model,
-        paper_directory=PAPERS_DIRECTORY,
+        paper_directory=PAPERS_DIRECTORY, # type: ignore
         output_dir=OUTPUTS_DIRECTORY,
     )
     engine.settings = query_settings
@@ -92,12 +111,15 @@ def get_documents():
     documents = {}
     embeddings_db = Embeddings()
     embeddings_db.load_existing_embeddings(EMBEDDINGS_DIR)
-    if os.path.exists(PAPERS_DIRECTORY):
+    print(embeddings_db)
+    if PAPERS_DIRECTORY and os.path.exists(PAPERS_DIRECTORY):
         try:
             docs_df = embeddings_db.get_docs_details()
+            print(docs_df)
+            docs_df = docs_df[["docname", "title"]]
             filenames_df = pd.DataFrame({"filename": os.listdir(PAPERS_DIRECTORY)})
             filenames_df["title"] = filenames_df["filename"].apply(lambda row: re.sub(" +", " ", row.strip(".pdf").replace("_", " ").replace("-", " ")).strip())
-            filenames_df = filenames_df.merge(docs_df, how="left", on="title")
+            filenames_df = filenames_df.merge(docs_df, how="left", on="title") # type: ignore
         except Exception as e:
             print(f"Error loading document titles: {str(e)}")
             docs_df = pd.DataFrame([])
@@ -105,12 +127,11 @@ def get_documents():
             if filename.endswith(('.pdf', '.md')):
                 documents[filename] = get_document_parsed_content(filename)
 
-    return documents, docs_df[["docname", "title"]]
-
+    return documents, docs_df
 
 @st.cache_data
 def get_document_parsed_content(filename):
-    doc_json_path = PAPERS_DIRECTORY / f"{filename.strip('.pdf')}.json"
+    doc_json_path = f"PAPERS_DIRECTORY/{filename.strip('.pdf')}.json"
     doc_content = {}
     if os.path.exists(doc_json_path):
         doc_content = json.load(open(doc_json_path, 'r', encoding='utf-8'))
@@ -143,20 +164,18 @@ if 'current_model' not in st.session_state or st.session_state.current_model != 
 # Available Documents Section
 st.subheader('📄 Available Documents')
 with st.expander("View Available Documents", expanded=False):
-    documents, show_docs_df = get_documents()
-    # try:
-    #     show_docs_df = pd.DataFrame([(documents[k]['text_chunks']['title'], k) for k in documents.keys()], columns=['Title', 'Document Filename'])
-    # except KeyError:
-    #     show_docs_df = pd.DataFrame(columns=['Title', 'Document Filename'])
-    #     st.error("Error loading document titles. Please check the document structure.")
+    documents = get_documents()
+    st.write(len(documents))
+    try:
+        documents, show_docs_df = get_documents()
+    except KeyError:
+        show_docs_df = pd.DataFrame(columns=['docname', 'title'])
+        st.error("Error loading document titles. Please check the document structure.")
 
     
     if documents:
         st.write(f"**Total Documents:** {len(documents)}")
         st.dataframe(show_docs_df, use_container_width=True)
-        # # Display documents in a nice format
-        # for i, doc_name in enumerate(documents, 1):
-        #     st.write(f"**{i}.** {doc_name}")
     else:
         st.info("No documents available")
 
@@ -192,31 +211,34 @@ if search_button and question:
             start_time = time.time()
             result = st.session_state.engine.query_single(question, max_retries=3)
             execution_time = time.time() - start_time
+            if result:
+                # Display results in a nicely formatted way
+                st.success(f'Search completed in {execution_time:.2f} seconds!')
+                
+                # Answer section
+                st.subheader('💡 Answer')
+                answer_without_references = result['answer'].split('\nReferences')[0].strip()
+                st.markdown(answer_without_references)
             
-            # Display results in a nicely formatted way
-            st.success(f'Search completed in {execution_time:.2f} seconds!')
-            
-            # Answer section
-            st.subheader('💡 Answer')
-            answer_without_references = result['answer'].split('\nReferences')[0].strip()
-            st.markdown(answer_without_references)
-            
-            # # Sources section
-            shown_citations = set()
-            if result['citations']:
-                st.subheader('📚 Sources')
-                for i, citation in enumerate(result['citations']):
-                    if citation not in shown_citations:
-                        st.write(f"**{i+1}.** {citation}")
-                        shown_citations.add(citation)
-            
-            # # Origina Contexts section (if available). But this is not nice because PyPDF does not parse well the contexts so they are crappy
-            # raw_response = result.get('raw_response')
-            # if raw_response:
-            #     texts = [context.text for context in raw_response.contexts]
-            #     st.subheader('🔗 Relevant Contexts')
-            #     for i, text in enumerate(texts):
-            #         st.write(f"**{i+1}. {text.name})** ... {text.text} ...")
+                # # Sources section
+                shown_citations = set()
+                if result['citations']:
+                    st.subheader('📚 Sources')
+                    for i, citation in enumerate(result['citations']):
+                        if citation not in shown_citations:
+                            st.write(f"**{i+1}.** {citation}")
+                            shown_citations.add(citation)
+                # Intermediate steps before generating the final summary. But it is too long and even confusing...
+                # st.subheader('📝 Model Summaries')
+                # st.write(f"CONTEXT: {result['context']}")
+
+                # Original Contexts section (if available). But this is not nice because PyPDF does not parse well the contexts so they are crappy
+                raw_response = result.get('raw_response')
+                if raw_response:
+                    texts = [context.text for context in raw_response.contexts]
+                    st.subheader('🔗 Relevant Contexts')
+                    for i, text in enumerate(texts):
+                        st.write(f"**{i+1}. {text.name})**") # ... {text.text} ...
                     
         except Exception as e:
             st.error(f'An error occurred: {str(e)}')
