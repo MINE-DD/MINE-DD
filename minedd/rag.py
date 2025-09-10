@@ -1,9 +1,7 @@
 # https://python.langchain.com/api_reference/community/vectorstores/langchain_community.vectorstores.faiss.FAISS.html#langchain_community.vectorstores.faiss.FAISS
 # %pip install --quiet --upgrade langchain-text-splitters langchain-community langgraph 
-# pip install -qU "langchain[cohere]"
 # pip install -qU langchain-huggingface langchain-ollama
 # pip install faiss-cpu
-# pip install cohere
 
 import re
 import os
@@ -15,7 +13,6 @@ from rank_bm25 import BM25Okapi
 from sklearn.feature_extraction import _stop_words
 import string
 from tqdm import tqdm
-from pathlib import Path
 
 from langchain.retrievers.document_compressors.cross_encoder_rerank import CrossEncoderReranker
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
@@ -108,6 +105,8 @@ class PersistentFAISS:
                 docstore=InMemoryDocstore(),
                 index_to_docstore_id={},
             )
+        elif len(documents) == 0:
+            raise ValueError("No valid documents were provided to initialize the index! ({} documents)".format(len(documents)))
         else:
             print(f"No existing index found at {self.index_path}, creating a new one with {len(documents)} documents...")    
             self._create_new_index(documents)
@@ -262,8 +261,8 @@ class SimpleRAG:
 
 def run_vanilla_rag(embeddings, llm):
 
-    PAPERS_DIRECTORY = Path.home() / "papers_minedd_mini"
-    SAVE_VECTOR_PATH = "minedd_test_index"
+    PAPERS_DIRECTORY = os.getenv("PAPERS_DIRECTORY", "papers_minedd")
+    SAVE_VECTOR_PATH = os.getenv("SAVE_VECTOR_INDEX", "minedd_rag_index")
     
     # Index and Store Embeddings
     index = faiss.IndexFlatL2(len(embeddings.embed_query("hello world")))
@@ -320,17 +319,12 @@ def run_vanilla_rag(embeddings, llm):
 
 
 if __name__ == "__main__":
-    # model_name="command-r-plus",
-    # model_provider="cohere"
-    ### OR
-    # model_name="gemini-2.5-flash-lite-preview-06-17",
-    # model_provider="google_genai"
-    ### OR
-    model_name="llama3.2:latest"
-    model_provider="ollama"
+    model_provider=os.getenv("LLM_GEN_BACKEND", "ollama")
+    gen_model_name=os.getenv("LLM_GEN", "llama3.2:latest")
+    model_embedder = os.getenv("LLM_EMBEDDER", "mxbai-embed-large:latest")
 
 
     run_vanilla_rag(
-        embeddings=OllamaEmbeddings(model="mxbai-embed-large:latest"),
-        llm=init_chat_model(model_name, model_provider=model_provider)
+        embeddings=OllamaEmbeddings(model=model_embedder),
+        llm=init_chat_model(gen_model_name, model_provider=model_provider)
     )

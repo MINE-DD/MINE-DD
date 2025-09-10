@@ -1,4 +1,7 @@
 """
+
+    This script is meant to be run form the project root folder as 'tools/extract_pdf_content.py [...]'
+    
     To use this script at full capacity, make sure to do the following:
     
     1. Install Ollama and run the Ollama server (to use Marker with LLMs)
@@ -34,7 +37,10 @@
 
 import os
 import argparse
+from typing import Optional
 from minedd.document import DocumentPDF, init_marker
+from dotenv import load_dotenv
+load_dotenv("minedd/.env")  # take environment variables from .env file inside the minedd folder
 
 
 def init_all_parsers(mode, model_llm):
@@ -66,7 +72,7 @@ def init_all_parsers(mode, model_llm):
     return parsers
 
 
-def extract_content_from_pdfs(directory: str, model_llm: str, mode:str, skip_existing:bool):
+def extract_content_from_pdfs(directory: str, model_llm: Optional[str], mode:str, skip_existing:bool):
     # Iterate through all files in the directory
     pdf_files = [filename for filename in os.listdir(directory) if filename.endswith('.pdf')]
     n_files = len(pdf_files)
@@ -133,23 +139,24 @@ def extract_content_from_pdfs(directory: str, model_llm: str, mode:str, skip_exi
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Extract text content from PDFs in a directory.")
-    parser.add_argument('--directory', type=str, help="The path to the directory containing PDF files.")
+    parser.add_argument('--directory', type=str, default=None, help="The path to the directory containing PDF files.")
     parser.add_argument('--llm', type=str, default=None, help="The Ollama Model for Marker to use")
-    parser.add_argument('--mode', type=str, default="simple", help="Which content to extract. Options: ['all', 'grobid', 'markdown', 'tables']")
+    parser.add_argument('--mode', type=str, default="simple", help="Which content to extract. Options: ['simple', 'all', 'grobid', 'markdown', 'tables']")
     parser.add_argument('--skip_existing', action='store_true', help="If true, it will skip the pdfs that already have a json associated")
     args = parser.parse_args()
 
-    directory = args.directory
+
+    directory = args.directory if args.directory is not None else os.getenv("PAPERS_DIRECTORY", None)
     model_llm = args.llm
     mode = args.mode
 
     skip_existing=args.skip_existing
 
     # Ensure the directory exists
-    if not os.path.exists(directory):
+    if not directory or not os.path.exists(directory):
         print(f"ERROR: The directory {directory} does not exist.")
         exit()
-    
+
     if args.mode in ['simple', 'all', 'grobid', 'markdown', 'tables']:
         extract_content_from_pdfs(directory, model_llm, mode, skip_existing)
     else:

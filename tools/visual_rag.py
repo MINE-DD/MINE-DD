@@ -7,17 +7,17 @@ import os
 import json
 import time
 import faiss
-from minedd.rag import PersistentFAISS, SimpleRAG, get_documents_from_directory
-from pathlib import Path
+from minedd.rag import PersistentFAISS, SimpleRAG
+from minedd.document import get_documents_from_directory
 from langchain_ollama import OllamaEmbeddings
 from langchain.chat_models import init_chat_model
 import dotenv
-dotenv.load_dotenv('../notebooks/.env')  # Load environment variables from .env file
+dotenv.load_dotenv('minedd/.env')  # Load environment variables from .env file in the minedd directory
 
 # Important paths and configurations
-PAPERS_DIRECTORY = Path.home() / "papers_campylo/" # Directory containing the PDF papers
-EMBEDDING = "mxbai-embed-large:latest" # Embedder model to use
-VECTOR_STORE_PATH = "../minedd/outputs/minedd_campylo_index"
+PAPERS_DIRECTORY = os.getenv("PAPERS_DIRECTORY", None) # Directory containing the PDF papers
+EMBEDDING = os.getenv("LLM_EMBEDDER", "mxbai-embed-large:latest") # Embedder model to use
+VECTOR_STORE_PATH = os.getenv("SAVE_VECTOR_INDEX", "minedd_rag_index")
 CHUNK_SIZE = 10  # Number of sentences to merge into one Document
 CHUNK_OVERLAP = 4     # Number of sentences to overlap between chunks
 
@@ -66,15 +66,16 @@ def initialize_engine(selected_model):
         print(f"Loading existing vector store from {vector_store_path}")
         vector_store.initialize()
     else:
-        print(f"No existing vector store found at {vector_store_path}, Chunking and Loading Documents to create one...")
+        print(f"No existing vector store found at {vector_store_path}. Chunking and Loading Documents from '{PAPERS_DIRECTORY}'...")
         docs = get_documents_from_directory(
             directory=PAPERS_DIRECTORY,
             extensions=['.json'],
             chunk_size=CHUNK_SIZE,
             overlap=CHUNK_OVERLAP
         )
+        print(f"Creating Vector Store at '{vector_store_path}'")
         vector_store.initialize(documents=docs)
-
+    st.success(f"Vector Store '{vector_store_path}' with {len(vector_store.documents_list)} chunks has been successfully loaded!")
     return rag_engine
 
 
@@ -82,7 +83,7 @@ def initialize_engine(selected_model):
 @st.cache_data
 def get_documents():
     documents = {}
-    if os.path.exists(PAPERS_DIRECTORY):
+    if PAPERS_DIRECTORY and os.path.exists(PAPERS_DIRECTORY):
         for filename in os.listdir(PAPERS_DIRECTORY):
             if filename.endswith(('.pdf', '.md')):
                 doc_key = filename
@@ -97,7 +98,7 @@ def get_documents():
 
 @st.cache_data
 def get_document_parsed_content(filename):
-    doc_json_path = PAPERS_DIRECTORY / f"{filename[:-4]}.json"
+    doc_json_path = f"{PAPERS_DIRECTORY}/{filename[:-4]}.json"
     doc_content = {}
     if os.path.exists(doc_json_path):
         doc_content = json.load(open(doc_json_path, 'r', encoding='utf-8'))
@@ -111,7 +112,7 @@ def get_document_tables(document_key):
     filename = documents.get(document_key, {}).get('filename', None)
     if filename is None:
         return []
-    doc_json_path = PAPERS_DIRECTORY / f"{filename[:-4]}.json"
+    doc_json_path = f"{PAPERS_DIRECTORY}/{filename[:-4]}.json"
     doc_tables = []
     if os.path.exists(doc_json_path):
         doc_content = json.load(open(doc_json_path, 'r', encoding='utf-8'))
