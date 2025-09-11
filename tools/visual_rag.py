@@ -22,10 +22,11 @@ CHUNK_SIZE = 10  # Number of sentences to merge into one Document
 CHUNK_OVERLAP = 4     # Number of sentences to overlap between chunks
 
 # Define available models
-AVAILABLE_MODELS = [
-    "ollama/llama3.2:latest",
-    "google_genai/gemini-2.5-flash-lite-preview-06-17", 
-]
+# AVAILABLE_MODELS = [
+#     "ollama/llama3.2:latest",
+#     "google_genai/gemini-2.5-flash-lite-preview-06-17", 
+# ]
+AVAILABLE_MODELS=os.getenv("AVAILABLE_LLMS", "").split(",")
 LLM_TEMPERATURE = 0.0  # Temperature for LLM responses
 LLM_MAX_TOKENS = 8000  # Max tokens for LLM responses
 
@@ -241,8 +242,8 @@ if search_button and question:
                         # with st.expander("Original Context:"):
                         st.write(f"#### {langchain_doc.metadata['title']}\n##### {langchain_doc.metadata['section']}. Pages: {langchain_doc.metadata['pages']}")
                         st.write(f"* **Content**: {langchain_doc.page_content}")
-                        with st.expander("Main Claims:"):
-                            st.write("This is where the summary of claims in the context will go (not implemented yet)")
+                        # with st.expander("Main Claims:"):
+                        #     st.write("This is where the summary of claims in the context will go (not implemented yet)")
             if len(citation_list) > 0:
                 st.markdown("---")
                 st.header('🗂️ Related Tables')

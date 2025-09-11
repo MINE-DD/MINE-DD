@@ -413,7 +413,7 @@ def init_table_extractors():
     """
     Initialize the GMFT able Extractor for PDF documents.
     """
-    from gmft.auto import AutoTableDetector, AutoTableFormatter
+    from gmft.auto import AutoTableDetector, AutoTableFormatter # type: ignore
     detector = AutoTableDetector()
     formatter = AutoTableFormatter()
     print("GMFT Table Extractor initialized successfully.")

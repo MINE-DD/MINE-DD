@@ -52,7 +52,8 @@ dependencies = [
     "streamlit==1.46.0",
     "faiss-cpu>=1.11.0",
     "GrobidArticleExtractor>=0.7.0",
-    "rank-bm25==0.2.2"
+    "rank-bm25==0.2.2",
+    "sentence-transformers>=5.1.0"
 ]
 
 [project.optional-dependencies]

@@ -1,7 +1,4 @@
 # https://python.langchain.com/api_reference/community/vectorstores/langchain_community.vectorstores.faiss.FAISS.html#langchain_community.vectorstores.faiss.FAISS
-# %pip install --quiet --upgrade langchain-text-splitters langchain-community langgraph 
-# pip install -qU langchain-huggingface langchain-ollama
-# pip install faiss-cpu
 
 import re
 import os
@@ -81,7 +78,7 @@ def get_bm25_index(texts):
 class PersistentFAISS:
     def __init__(self, index_path, index, embeddings_engine, include_bm25=False):
         self.index_path = index_path
-        self.embeddings = embeddings_engine
+        self.embeddings_engine = embeddings_engine
         # Vector index
         self.vector_index = index
         self.vector_store = None
@@ -100,7 +97,7 @@ class PersistentFAISS:
         elif documents is None:
             print(f"No existing index found at {self.index_path}, creating an empty new one...") 
             self.vector_store = FAISS(
-                embedding_function=self.embeddings,
+                embedding_function=self.embeddings_engine,
                 index=self.vector_index,
                 docstore=InMemoryDocstore(),
                 index_to_docstore_id={},
@@ -124,7 +121,7 @@ class PersistentFAISS:
         print(f"Loading existing FAISS index from {self.index_path}")
         self.vector_store = FAISS.load_local(
             self.index_path,
-            self.embeddings,
+            self.embeddings_engine,
             allow_dangerous_deserialization=True
         )
         print("Index loaded successfully")
@@ -139,7 +136,7 @@ class PersistentFAISS:
     def _create_new_index(self, documents):
         """Create new FAISS index from documents"""
         print("Creating new FAISS index...")
-        self.vector_store = FAISS.from_documents(documents, self.embeddings)
+        self.vector_store = FAISS.from_documents(documents, self.embeddings_engine)
         self._save_index()
         print("New index created and saved")
     
@@ -207,9 +204,9 @@ class PersistentFAISS:
 
 
 class SimpleRAG:
-    def __init__(self, embeddings, generative_llm, vector_store):
+    def __init__(self, embeddings_engine, generative_llm, vector_store):
         self.llm = generative_llm
-        self.embeddings = embeddings
+        self.embeddings_engine = embeddings_engine
         self.vector_store = vector_store
         self.prompt = ChatPromptTemplate([("user", QA_VANILLA_PROMPT)])
         self.chain = self.prompt | self.llm
@@ -241,8 +238,7 @@ class SimpleRAG:
         return context
 
     def query(self, question, k, hybrid=False, num_candidates=10, answer_length=200, verbose=False):
-        """Query the knowledge graph with natural language"""
-        # Retrieve closest passages (results are a list of Documents)           
+        # Retrieve closest passages (results are a list of LangChain Documents)           
         results = self.vector_store.search(question, k=k, hybrid=hybrid, num_candidates=num_candidates, verbose=verbose)
         context = "\n\n".join([self._make_context_key(r) for r in results])
         print(f"Retrieved {len(results)} results")
@@ -259,24 +255,24 @@ class SimpleRAG:
         return results, response.content
 
 
-def run_vanilla_rag(embeddings, llm):
+def run_vanilla_rag(embeddings_engine, llm):
 
     PAPERS_DIRECTORY = os.getenv("PAPERS_DIRECTORY", "papers_minedd")
     SAVE_VECTOR_PATH = os.getenv("SAVE_VECTOR_INDEX", "minedd_rag_index")
     
     # Index and Store Embeddings
-    index = faiss.IndexFlatL2(len(embeddings.embed_query("hello world")))
+    index = faiss.IndexFlatL2(len(embeddings_engine.embed_query("hello world")))
     vector_store_path = SAVE_VECTOR_PATH
     vector_store = PersistentFAISS(
         index_path=vector_store_path,
         index=index, 
-        embeddings_engine=embeddings,
+        embeddings_engine=embeddings_engine,
         include_bm25=True
         )
     
     # Create RAG Engine
     rag_engine = SimpleRAG(
-        embeddings=embeddings,
+        embeddings_engine=embeddings_engine,
         generative_llm=llm,
         vector_store=vector_store
     )
@@ -319,12 +315,8 @@ def run_vanilla_rag(embeddings, llm):
 
 
 if __name__ == "__main__":
-    model_provider=os.getenv("LLM_GEN_BACKEND", "ollama")
-    gen_model_name=os.getenv("LLM_GEN", "llama3.2:latest")
-    model_embedder = os.getenv("LLM_EMBEDDER", "mxbai-embed-large:latest")
-
-
+    # Just testing the RAG with the "default" Embedder + Ollama model which is Llama3.2:3B
     run_vanilla_rag(
-        embeddings=OllamaEmbeddings(model=model_embedder),
-        llm=init_chat_model(gen_model_name, model_provider=model_provider)
+        embeddings_engine=OllamaEmbeddings(model="mxbai-embed-large:latest"),
+        llm=init_chat_model("llama3.2:latest", model_provider="ollama")
     )
