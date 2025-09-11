@@ -57,7 +57,7 @@ def initialize_engine(selected_model):
     
     # Create RAG Engine
     rag_engine = SimpleRAG(
-        embeddings=embeddings,
+        embeddings_engine=embeddings,
         generative_llm=llm,
         vector_store=vector_store
     )
