@@ -1,64 +1,40 @@
 import re
+import hashlib
 import os
 import json
 import pandas as pd
+from typing import Optional
+# For Marker as PDF to Markdown Converter
+from marker.converters.pdf import PdfConverter
+from marker.models import create_model_dict
+from marker.output import text_from_rendered
+from marker.config.parser import ConfigParser
 # For Grobid-Based PDF Text extraction
 from langchain_community.document_loaders.parsers import GrobidParser
 from langchain_community.document_loaders.generic import GenericLoader
 from GrobidArticleExtractor.app import GrobidArticleExtractor
+# GMFT for enhances table extraction
+from gmft.pdf_bindings import PyPDFium2Document # type: ignore
 # For Chunking Texts
 from langchain_core.documents import Document
 from langchain_text_splitters.character import CharacterTextSplitter, RecursiveCharacterTextSplitter
 
 
 class DocumentPDF:
-    def __init__(self, pdf_path: str, marker_config:dict=None, output_format:str="markdown"):
+    def __init__(self, pdf_path: str, marker_converter:Optional[PdfConverter] = None):
         # Basic Attributes
+        self.doc_key = None
         self.pdf_path = pdf_path
         self.markdown = None
         self.json_content = None
         self.tables = []
-        # Configure Marker to use Ollama as the LLM service
-        if marker_config is None:
-            self.marker_config = {
-                "output_format": output_format,  # Default output format is markdown, can also be 'json'?
-                "use_llm": True,
-                "llm_service": "marker.services.ollama.OllamaService",
-                "ollama_model": "llama3.2:latest",  # Specify which model you want to use
-                "ollama_base_url": "http://localhost:11434",  # Default Ollama URL,
-                "paginate_output": False # Set to True if you need pagination string separators
-            }
-        else:
-            self.marker_config = marker_config
-        self.marker_converter = None
-        
-
-    def _init_marker(self):
-        """Initialize Marker only when needed"""
-
-        if self.marker_converter is None:
-            # Import at runtime For Marker as PDF to Markdown Converter
-            from marker.converters.pdf import PdfConverter
-            from marker.models import create_model_dict
-            from marker.output import text_from_rendered
-            from marker.config.parser import ConfigParser
-            try:
-                config_parser = ConfigParser(self.marker_config)
-                self.marker_converter = PdfConverter(
-                    config=config_parser.generate_config_dict(),
-                    artifact_dict=create_model_dict(),
-                    processor_list=config_parser.get_processors(),
-                    renderer=config_parser.get_renderer(),
-                    llm_service=config_parser.get_llm_service()
-                )
-                self.text_from_rendered = text_from_rendered
-                print("Marker initialized successfully.")
-            except Exception as e:
-                print(f"Failed to initialize Marker: {e}")
-                self.marker_converter = None
+        self.title = "No Title"
+        self.authors = []
+        # Marker Converter to Use
+        self.marker_converter = marker_converter
 
     @classmethod
-    def from_json(cls, json_path: str):
+    def from_json(cls, json_path: str, marker_converter:Optional[PdfConverter] = None):
         try:
             with open(json_path) as f:
                 content = json.load(f)
@@ -68,9 +44,11 @@ class DocumentPDF:
         except json.decoder.JSONDecodeError:
             print(f"File {json_path} is empty or not a valid JSON! Returning None")
             return None          
-
         try:
-            doc = cls(json_path.replace('.json', '.pdf'))  # Assuming the PDF file has the same name as the JSON file
+            doc = cls(json_path.replace('.json', '.pdf'), marker_converter)  # Assuming the PDF file has the same name as the JSON file
+            doc.title = content.get("title", "No Title")
+            doc.authors = content.get("authors", [])
+            doc.doc_key = content.get("doc_key", None)
             doc.markdown = content["markdown"]
             doc.json_content = content["text_chunks"]
             doc.tables = [pd.DataFrame(t) for t in content["tables_as_json"]]
@@ -79,28 +57,69 @@ class DocumentPDF:
             print(f"Problem loading {json_path}. Error {e}.\nCheck that the file has the right format. Returning None")
             return None
 
+    
+    def infer_document_title(self) -> str:
+        """
+        Infer the document name from the PDF path.
+        """
+        # Title has already been set from grobid Metadata
+        if self.title != "No Title":
+            return self.title
+        # Else, infer the title from the PDF path or filename
+        elif self.pdf_path:
+            file_title = os.path.basename(self.pdf_path).replace('.pdf', '')
+            file_title = re.sub(r'[_-]', ' ', file_title)  # Replace underscores and hyphens with spaces
+            title_words = re.findall(r'\w+', file_title)
+        else:
+            title_words = []
+        
+        title = ' '.join(title_words).title() if title_words else "No Title"
+        
+        return title
+
+    def make_doc_key(self, first_author: Optional[str] = None) -> str:
+        if self.doc_key is not None:
+            return self.doc_key
+        # Get the document title
+        title = self.infer_document_title()
+        keywords = self.infer_document_title().split()[:2]
+        keywords_part = "".join([w.capitalize() for w in keywords])
+        # Get a short hash from the title content for uniqueness
+        short_hash = hashlib.md5(title.encode('utf-8')).hexdigest()[:6]
+        # Normalize the author's last name (no spaces, capitalized first letter)
+        if first_author:
+            last_name = re.sub(r'[^A-Za-z]', '', first_author).capitalize()
+            return f"{last_name}_{keywords_part}_{short_hash}"
+        elif len(self.authors) > 0:
+            first_author = self.authors[0]
+            last_name = re.sub(r'[^A-Za-z]', '', first_author).capitalize()
+            return f"{last_name}_{keywords_part}_{short_hash}"
+        else:
+            return f"{keywords_part}_{short_hash}"
+
 
     def get_markdown(self) -> str:
         if self.markdown is not None:
             return self.markdown
+        elif self.marker_converter is None:
+            raise RuntimeError("Marker PDF converter is not initialized. Please call initialize it first.")
         else:
-            if self.marker_config.get("output_format") != "markdown":
-                raise ValueError("Output format must be set to 'markdown' in the configuration.")
             try:
-                self._init_marker()  # Initialize only when actually needed
                 # Convert PDF to markdown
                 rendered = self.marker_converter(self.pdf_path)
                 # Extract the markdown text and images
-                marker_text, _, images = self.text_from_rendered(rendered)
+                marker_text, _, images = text_from_rendered(rendered)
                 self.markdown = marker_text
                 return marker_text
             except Exception as e:
-                raise RuntimeError(f"Failed to read PDF file: {e}")
+                print(f"Error converting PDF {self.pdf_path} to Markdown: {e}")
+                self.markdown = ""
+                return ""
     
     def get_grobid_chunks(self, 
                             segment_sentences:bool = True, 
                             return_as_dict:bool = False,
-                            include_detailed_metadata:bool = True, 
+                            grobid_metadata_extractor:Optional[GrobidArticleExtractor] = None, 
                             group_dict_by_section:bool = True) -> dict | list[Document]:
         """
         uses GROBID (instructions here: https://grobid.readthedocs.io/en/latest/Install-Grobid/) 
@@ -119,12 +138,15 @@ class DocumentPDF:
             docs = []
         
         doc_metadata = {}
-        if include_detailed_metadata:
+        if grobid_metadata_extractor is not None:
             try:
                 full_extractor = GrobidArticleExtractor()
                 xml_content = full_extractor.process_pdf(self.pdf_path)
-                result = full_extractor.extract_content(xml_content)
+                result = full_extractor.extract_content(xml_content) if xml_content else {}
                 doc_metadata = result['metadata']
+                assert isinstance(doc_metadata, dict), "Grobid extraction did not return a dictionary."
+                self.authors = doc_metadata['authors']
+                self.title = str(doc_metadata['title'])
             except Exception as e:
                 print("ERROR", e)
                 print("Returning empty metadata dict...")
@@ -134,8 +156,11 @@ class DocumentPDF:
             return docs
 
         if return_as_dict and group_dict_by_section:
+            doc_key = self.make_doc_key()
+            self.title = docs[0].metadata.get("paper_title", self.infer_document_title())
             docs_dict = {
-                "title": docs[0].metadata.get("paper_title", "NoTitle"),
+                "title": self.title,
+                "doc_key": doc_key,
                 "grouped_by_section": group_dict_by_section,
                 "sections_titles": [],
                 "sections_content": {}
@@ -148,6 +173,7 @@ class DocumentPDF:
                 chunk_index = i if segment_sentences else int(doc.metadata['para'])
                 row = {
                     "text": doc.page_content.replace('\n', ' '),
+                    "parent_doc_key": doc_key,
                     "pages": pages_str,
                     "chunk_index": chunk_index,
                     "section":section_title,
@@ -161,8 +187,11 @@ class DocumentPDF:
             docs = docs_dict
             self.json_content = docs_dict
         elif return_as_dict:
+            doc_key = self.make_doc_key()
+            self.title = docs[0].metadata.get("paper_title", self.infer_document_title())
             docs_dict = {
-                "title": docs[0].metadata.get("paper_title", "NoTitle"),
+                "title": self.title,
+                "doc_key": doc_key,
                 "grouped_by_section": group_dict_by_section,
                 "chunks": [],
                 }
@@ -174,6 +203,7 @@ class DocumentPDF:
                 chunk_index = i if segment_sentences else int(doc.metadata['para'])
                 row = {
                     "text": doc.page_content.replace('\n', ' '),
+                    "parent_doc_key": doc_key,
                     "pages": pages_str,
                     "chunk_index": chunk_index,
                     "section":section_title,
@@ -182,17 +212,13 @@ class DocumentPDF:
                 docs_dict["chunks"].append(row)
             docs = docs_dict
             self.json_content = docs_dict
+        # Otherwise return the list of LangChain Document objects
         return docs
 
 
-    def get_document_tables(self) -> list[str]:
+    def get_document_tables(self, detector, formatter) -> list[str]:
         "Uses GMT to extract tables as loadable CSV files from the PDF document. Stores the tables in a list of loadable strings."
         # For Table Extraction
-        from gmft.auto import AutoTableDetector, AutoTableFormatter
-        from gmft.pdf_bindings import PyPDFium2Document
-        
-        detector = AutoTableDetector()
-        formatter = AutoTableFormatter()
         doc = PyPDFium2Document(self.pdf_path)
         tables = []
         for page in doc:
@@ -203,6 +229,7 @@ class DocumentPDF:
         for index, table in enumerate(formatted_tables):
             dataframes.append(table.df())
         self.tables = dataframes
+        doc.close()
         return dataframes
 
 
@@ -243,6 +270,8 @@ class DocumentPDF:
     
     def get_document_as_dict(self):
         return {
+            "doc_key": self.make_doc_key(),
+            "title": self.infer_document_title(),
             "original_path": self.pdf_path,
             "markdown": self.markdown,
             "text_chunks": self.json_content,
@@ -255,7 +284,7 @@ class DocumentPDF:
 
 
 class DocumentMarkdown:
-    def __init__(self, md_content:str = None, md_path: str = None):
+    def __init__(self, md_content:str = "", md_path: str = ""):
         # Basic Attributes
         self.name = None
         self.md_path = md_path if md_path else None
@@ -263,7 +292,7 @@ class DocumentMarkdown:
             print("WARNING! Both 'md_content' and 'md_path' were provided, only loading the content from 'md_content'.")
         if md_content:
             self.markdown = md_content
-        elif md_path:
+        elif self.md_path:
             self.markdown = self.load_content(self.md_path)
         else:
             raise ValueError("Either 'md_content' or 'md_path' must be provided.")     
@@ -300,7 +329,7 @@ class DocumentMarkdown:
 
     def load_content(self, from_path: str):
         try:
-            with open(self.md_path, 'r', encoding='utf-8') as file:
+            with open(from_path, 'r', encoding='utf-8') as file:
                 self.markdown = file.read()
                 return self.markdown
         except FileNotFoundError:
@@ -324,7 +353,7 @@ class DocumentMarkdown:
             raise ValueError(f"Mode must be one of {valid_opts}, got '{mode}' instead.")
         elif mode == 'chars':
             text = self.get_markdown(only_text=True, remove_markup=True, remove_references=True)
-            splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=overlap, add_start_index=True, separators=["\n\n", "\n", ".", "!", "?", " ", ""])
+            splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=overlap, add_start_index=True, separators=["\n\n", "\n", ".", "!", "?", " "])
         elif mode == 'newlines':
             text = self.get_markdown(remove_references=True, remove_markup=True)
             splitter = CharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=overlap, separator="\n\n", length_function=len)
@@ -344,6 +373,51 @@ class DocumentMarkdown:
         return ref_list
 
 
+def init_marker(marker_config:Optional[dict] = None) -> PdfConverter:
+    """
+    Initialize the Marker converter with the given configuration.
+    """
+    if marker_config is None:
+        marker_config = {
+            "output_format": "markdown",  # Default output format is always markdown
+            "use_llm": True,
+            "llm_service": "marker.services.ollama.OllamaService",
+            "ollama_model": "llama3.2:latest",  # Specify which model you want to use
+            "ollama_base_url": "http://localhost:11434",  # Default Ollama URL,
+            "paginate_output": False # Set to True if you need pagination string separators
+        }
+    config_parser = ConfigParser(marker_config)
+    converter_kwargs = {
+        "config": config_parser.generate_config_dict(),
+        "artifact_dict": create_model_dict(),
+        "processor_list": config_parser.get_processors(),
+        "renderer": config_parser.get_renderer()
+    }
+    if "llm_service" in marker_config:
+        converter_kwargs["llm_service"] = config_parser.get_llm_service()
+    print("Initializing Marker Converter with config:", marker_config)
+    converter = PdfConverter(**converter_kwargs)
+    print("Marker Converter initialized successfully.")
+    return converter
+
+def init_grobid_parser():
+    """
+    Initialize the Vanilla Grobid parser for PDF metadata extraction.
+    """
+    grobid_parser = GrobidArticleExtractor()
+    print("Grobid parser initialized successfully.")
+    return grobid_parser
+
+
+def init_table_extractors():
+    """
+    Initialize the GMFT able Extractor for PDF documents.
+    """
+    from gmft.auto import AutoTableDetector, AutoTableFormatter # type: ignore
+    detector = AutoTableDetector()
+    formatter = AutoTableFormatter()
+    print("GMFT Table Extractor initialized successfully.")
+    return detector, formatter
 
 
 def process_from_grobid_chunks(filename, json_content, as_langchain_docs:bool=False, chunk_size:int=1000, overlap:int=100):
@@ -353,6 +427,7 @@ def process_from_grobid_chunks(filename, json_content, as_langchain_docs:bool=Fa
             text = " ".join([c['text'] for c in batch])
             metadata = {
                 "source": filename,
+                "parent_doc_key": parent_doc_key,
                 "title": doc_title,
                 "pages": f"{batch[0]['pages'].split('-')[0]}-{batch[-1]['pages'].split('-')[-1]}",
                 "chunk_index": f"{batch[0]['chunk_index']}-{batch[-1]['chunk_index']}",
@@ -366,11 +441,13 @@ def process_from_grobid_chunks(filename, json_content, as_langchain_docs:bool=Fa
             return doc
         else:
             return [c['text'] for c in batch]
-    # json_content = self.json_content
+    
     if json_content is None:
-        raise ValueError("No JSON content available. Please run 'get_grobid_chunks' first.")
+        print(f"WARNING: No JSON content available for '{filename}'. Please run 'get_grobid_chunks' first. Returning empty list...")
+        return []
     print("Processing JSON content into chunks of size ", chunk_size, " sentences with overlap ", overlap)
     doc_title = json_content['title']
+    parent_doc_key = json_content['doc_key']
     is_grouped_by_section = json_content['grouped_by_section']
     chunks_key = 'sections_content' if is_grouped_by_section else 'chunks'
     step_size = max(1, chunk_size - overlap)  # Ensure step_size >= 1
@@ -398,6 +475,8 @@ def get_documents_from_directory(directory, extensions=['.json'], chunk_size=10,
         if '.json' in extensions and filename.endswith('.json'):
             processed_files += 1
             full_paper = DocumentPDF.from_json(json_path=os.path.join(directory, filename))
+            if full_paper is None:
+                continue
             paper_chunks = full_paper.get_chunks(
                 mode='from_json', 
                 chunk_size=chunk_size, 
@@ -406,7 +485,7 @@ def get_documents_from_directory(directory, extensions=['.json'], chunk_size=10,
                 )
             documents.extend(paper_chunks)
         else:
-            raise NotImplementedError("Only Document JSONs are supported (Created by the Document.get_grobid_chunks() method)")
+            print(f"WARNING: Unsupported file type for {filename}. Only Document JSONs are supported (Created by the Document.get_grobid_chunks() method). Skipping file...")
 
     print(f"Processed {processed_files} files, extracted {len(documents)} Document chunks")
     return documents

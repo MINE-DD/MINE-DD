@@ -12,7 +12,7 @@ import numpy as np
 import re
 import subprocess
 import time
-
+from typing import Optional
 from minedd.utils import configure_settings, safely_load_pickle_file
 
 class Query:
@@ -138,7 +138,7 @@ class Query:
     # I have divided the query into single and batch.
     # query_single is designed for interactive usage where you want immediate answers (useful if making the interactions real time)
     # query_batch is instead for multiple questions, when these must be submitted as a job.sh on Snellius with file saving
-    def query_single(self, question: str, max_retries: int = 2) -> dict:
+    def query_single(self, question: str, max_retries: int = 2) -> Optional[dict]:
         """
         Query the documents with a single question.
 
