@@ -5,10 +5,15 @@ import json
 import pandas as pd
 from typing import Optional
 # For Marker as PDF to Markdown Converter
-from marker.converters.pdf import PdfConverter
-from marker.models import create_model_dict
-from marker.output import text_from_rendered
-from marker.config.parser import ConfigParser
+try:
+    from marker.converters.pdf import PdfConverter
+    from marker.models import create_model_dict
+    from marker.output import text_from_rendered
+    from marker.config.parser import ConfigParser
+    MARKER_LOADED=True
+except Exception as e:
+    print(f"Fatal error loading Marker! Your machine is not compatible. {e}")
+    MARKER_LOADED=False
 # For Grobid-Based PDF Text extraction
 from langchain_community.document_loaders.parsers import GrobidParser
 from langchain_community.document_loaders.generic import GenericLoader
@@ -21,7 +26,7 @@ from langchain_text_splitters.character import CharacterTextSplitter, RecursiveC
 
 
 class DocumentPDF:
-    def __init__(self, pdf_path: str, marker_converter:Optional[PdfConverter] = None):
+    def __init__(self, pdf_path, marker_converter = None):
         # Basic Attributes
         self.doc_key = None
         self.pdf_path = pdf_path
@@ -34,7 +39,7 @@ class DocumentPDF:
         self.marker_converter = marker_converter
 
     @classmethod
-    def from_json(cls, json_path: str, marker_converter:Optional[PdfConverter] = None):
+    def from_json(cls, json_path: str, marker_converter:Optional["PdfConverter"] = None):
         try:
             with open(json_path) as f:
                 content = json.load(f)
@@ -102,7 +107,15 @@ class DocumentPDF:
         if self.markdown is not None:
             return self.markdown
         elif self.marker_converter is None:
-            raise RuntimeError("Marker PDF converter is not initialized. Please call initialize it first.")
+            print("Marker PDF converter is not initialized. Defaulting to PyMuPDF")
+            import pymupdf4llm
+            md_text = pymupdf4llm.to_markdown(self.pdf_path, 
+                                            page_chunks=False, 
+                                            table_strategy="lines", 
+                                            embed_images=False
+                                            )
+            self.markdown = md_text
+            return md_text
         else:
             try:
                 # Convert PDF to markdown
@@ -373,10 +386,12 @@ class DocumentMarkdown:
         return ref_list
 
 
-def init_marker(marker_config:Optional[dict] = None) -> PdfConverter:
+def init_marker(marker_config:Optional[dict] = None) ->Optional["PdfConverter"]:
     """
     Initialize the Marker converter with the given configuration.
     """
+    if not MARKER_LOADED:
+        return None
     if marker_config is None:
         marker_config = {
             "output_format": "markdown",  # Default output format is always markdown

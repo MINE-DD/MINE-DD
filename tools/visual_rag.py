@@ -17,6 +17,8 @@ dotenv.load_dotenv('minedd/.env')  # Load environment variables from .env file i
 # Important paths and configurations
 PAPERS_DIRECTORY = os.getenv("PAPERS_DIRECTORY", None) # Directory containing the PDF papers
 EMBEDDING = os.getenv("LLM_EMBEDDER", "mxbai-embed-large:latest") # Embedder model to use
+if "/" in EMBEDDING:
+    EMBEDDING = EMBEDDING.split("/")[-1] # in case someome put the "ollama/embedder-model-syntax"
 VECTOR_STORE_PATH = os.getenv("SAVE_VECTOR_INDEX", "minedd_rag_index")
 CHUNK_SIZE = 10  # Number of sentences to merge into one Document
 CHUNK_OVERLAP = 4     # Number of sentences to overlap between chunks

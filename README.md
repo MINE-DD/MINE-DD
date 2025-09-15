@@ -28,13 +28,13 @@ Notes:
 - MINE-DD uses Ollama models locally
 - Default LLMs: ollama/llama3.2:1b (for laptop-friendly usage)
 - Default embeddings: ollama/mxbai-embed-large:latest
-- It uses Python >= 3.11
+- It uses Python >= 3.12
 
 ## Installation
 
 ### Requirements
 
-- Python 3.11 or higher
+- Python 3.12 or higher
 - [Ollama](https://ollama.ai/) installed locally for running LLMs and embeddings
 
 ### Installation Steps
@@ -49,7 +49,7 @@ cd MINE-DD
 2. Create a new virtual environment:
 
 ```console
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 ```
 
@@ -57,10 +57,10 @@ source .venv/bin/activate
 
 ```console
 # Standard installation
-python -m pip install .
+python3 -m pip install .
 
 # Development installation
-python -m pip install -e ".[dev]"
+python3 -m pip install -e ".[dev]"
 ```
 
 ### Testing
@@ -178,10 +178,48 @@ For installing Docker-based GROBID (Recommended for Windows and Linux users):
 3. Run the image with `docker run -p 8070:8070 lfoppiano/grobid:0.8.2`
 
 For installing GROBID from Source (Recommended for MAC users):
-1. Download the source package: `wget https://github.com/kermitt2/grobid/archive/0.8.2.zip`
-2. Go into Grobid Dir `cd grobid-0.8.2`
-3. Install with `./gradlew clean install`
-4. Run the server with `./gradlew run`
+1. Make sure you have Java installed (Open JDK 17). 
+
+```console
+java --version
+```
+
+If that command fails, it means you don't have it installed yet. You can install it with brew for Mac:
+
+```console
+brew install openjdk@17
+```
+
+Or for windows:
+
+```console
+winget install Microsoft.OpenJDK.17
+```
+
+Then you might need to add Java to the PATH:
+
+```console
+echo 'export PATH="/usr/local/opt/openjdk@17/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+2. Download the source package and unzip it in the desired location: 
+
+```console
+wget https://github.com/kermitt2/grobid/archive/0.8.2.zip
+```
+
+3. Go into Grobid Dir and Install it: 
+```console
+cd grobid-0.8.2
+./gradlew clean install
+```
+
+4. Run the server:
+
+```console
+./gradlew run
+```
 
 For more information about models,configuration and deployment visit the [Documentation](https://grobid.readthedocs.io/en/latest/Install-Grobid/) or this [GROBID Wiki](https://deepwiki.com/kermitt2/grobid/3-installation-and-deployment)
 
@@ -192,7 +230,7 @@ Back in the terminal inside the MINE-DD repository you should create an environm
 1. Create the file:
 
 ```console
-vi .env
+touch .env
 ```
 
 2. Open the file, copy the following content and modify to serve your purposes:
@@ -211,7 +249,7 @@ GOOGLE_API_KEY="copy-your-personal-api-key" # (only needed if using a Remote Gem
 The easiest is to use the Default values from the `.env` file. The script will search for every PDf inside the `PAPERS_DIRECTORY`, parse them and save a `.json` version for each processed pdf inside the same directory. You only need to directly run: 
 
 ```console
-python tools/extract_pdf_content.py --mode all --skip_existing
+python3 tools/extract_pdf_content.py --mode all --skip_existing
 ``` 
 
 If there are too many documents and you interrupt the script, next time you run it it will only process the pdf's which do not have a corresponding parsed JSON. Feel free to explore the script for more customizable parameters.
@@ -221,7 +259,7 @@ If there are too many documents and you interrupt the script, next time you run 
 Once everything was setup you only need to run the following tool. You only need to change the `PAPERS_DIRECTORY` and `SAVE_VECTOR_INDEX` to generate different RAG systems pointing to different document collections. To run the visual RAg, make sure to be in the root of the repository and run:
 
 ```console
-python -m streamlit run tools/visual_rag.py
+python3 -m streamlit run tools/visual_rag.py
 ``` 
 
 ### Creating Several Collections
@@ -230,7 +268,7 @@ As mentioned, you can manage separate paper collections as long as the collectio
 1. Put papers in a folder, e.g. `my_unique_papers`
 2. Adjust the `PAPERS_DIRECTORY` and `SAVE_VECTOR_INDEX` variables in the `.env` file. Make sure the right index and the document folder always correspond to each other.
 3. Run the pdf `extract_pdf_content.py` tool to create the jsons
-4. Run Visual RAG `python -m streamlit run tools/visual_rag.py`
+4. Run Visual RAG `python3 -m streamlit run tools/visual_rag.py`
 
 
 

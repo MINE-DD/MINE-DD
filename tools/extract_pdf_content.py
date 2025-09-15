@@ -10,8 +10,10 @@
         3) To Download models for Ollama, run e.g.: ollama pull llama3.2:latest
 
     2. Install Grobid and run the Grobid server
-        Needs separate Java Virtual Machine instalation and follow instructions here: 
-        https://grobid.readthedocs.io/en/latest/Install-Grobid/
+        Needs separate Java Virtual Machine instalation (Versions between 11 and 17):
+        1) MAC: "brew install openjdk@17"
+        2) WINDOWS: "winget install Microsoft.OpenJDK.17"
+        more instructions here: https://grobid.readthedocs.io/en/latest/Install-Grobid/
         
         In a separate terminal:
         1) Download: wget https://github.com/kermitt2/grobid/archive/0.8.2.zip
