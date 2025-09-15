@@ -267,8 +267,9 @@ python3 -m streamlit run tools/visual_rag.py
 As mentioned, you can manage separate paper collections as long as the collections are grouped inside the same directory and you point to the correct index. The cycle to create new collections is the following:
 1. Put papers in a folder, e.g. `my_unique_papers`
 2. Adjust the `PAPERS_DIRECTORY` and `SAVE_VECTOR_INDEX` variables in the `.env` file. Make sure the right index and the document folder always correspond to each other.
-3. Run the pdf `extract_pdf_content.py` tool to create the jsons
-4. Run Visual RAG `python3 -m streamlit run tools/visual_rag.py`
+3. Make sure to open **GROBID** with `./gradlew run` inside the grobid folder.
+4. Run the pdf `extract_pdf_content.py` tool to create the jsons
+5. Run Visual RAG `python3 -m streamlit run tools/visual_rag.py`
 
 
 
