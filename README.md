@@ -42,19 +42,27 @@ Notes:
 1. Clone the repository:
 
 ```console
-git clone git@github.com:MINE-DD/MINE-DD.git
+git clone https://github.com/MINE-DD/MINE-DD.git
 cd MINE-DD
 ```
 
 2. Create a new virtual environment:
 
+MAC/Linux:
 ```console
 python3 -m venv .venv
 source .venv/bin/activate
 ```
 
+Windows:
+```console
+py -m venv .venv
+source .\.venv\Scripts\activate
+```
+
 2. Install the package:
 
+MAC/Linux:
 ```console
 # Standard installation
 python3 -m pip install .
@@ -63,9 +71,18 @@ python3 -m pip install .
 python3 -m pip install -e ".[dev]"
 ```
 
+Windows:
+```console
+# Standard installation
+py -m pip install .
+
+# Development installation
+py -m pip install -e ".[dev]"
+```
+
 ### Testing
 
-The project includes two types of tests:
+This step is OPTIONAL. The project includes two types of tests:
 
 1. **Standard Tests**: These run in CI environments (GitHub Actions) and don't require Ollama or GPU access.
 
@@ -73,8 +90,11 @@ The project includes two types of tests:
    # Run all standard tests
    pytest
    
-   # Run specific test files
+   # Run specific test files (Mac/Linux)
    pytest tests/test_utils.py tests/test_cli.py
+
+   # Run specific test files (Windows)
+   pytest tests\test_utils.py tests\test_cli.py
    ```
 
 2. **Integration Tests**: These test the full functionality including LLM queries with Ollama, requiring a local environment with Ollama running.
@@ -237,7 +257,7 @@ touch .env
 
 ```python
 PAPERS_DIRECTORY="/Path/to/papers_minedd" # Full Path to any PDF Paper Folder location
-SAVE_VECTOR_INDEX="minedd_rag_index" # where the Vector Database is saved. Can be a full path or just a folder name
+SAVE_VECTOR_INDEX="minedd_rag_index" # where the Vector Database is saved. Can be a FULL path or just a folder name
 LLM_EMBEDDER="mxbai-embed-large:latest" # Embedding Model. We will ALWAYS embedd the documents locally
 AVAILABLE_LLMS="ollama/llama3.2:latest,google_genai/gemini-2.5-flash-lite-preview-06-17" # A list of models, separated by commas. The syntax should be <provider>/<specific_model>, ...
 MINEDD_EMBEDDINGS_PATH="minedd_paperqa_embeddings" # This is only needed if using visual_minedd.py (PaperQA version)
