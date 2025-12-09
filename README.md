@@ -278,8 +278,14 @@ If there are too many documents and you interrupt the script, next time you run 
 
 Once everything was setup you only need to run the following tool. You only need to change the `PAPERS_DIRECTORY` and `SAVE_VECTOR_INDEX` to generate different RAG systems pointing to different document collections. To run the visual RAg, make sure to be in the root of the repository and run:
 
+MAC/Linux:
 ```console
 python3 -m streamlit run tools/visual_rag.py
+``` 
+
+Windows:
+```console
+py -m streamlit run tools\visual_rag.py
 ``` 
 
 ### Creating Several Collections
