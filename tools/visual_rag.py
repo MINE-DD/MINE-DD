@@ -77,7 +77,7 @@ def initialize_engine(selected_model):
             overlap=CHUNK_OVERLAP
         )
         print(f"Creating Vector Store at '{vector_store_path}'")
-        vector_store.initialize(documents=docs)
+        vector_store.initialize(documents=docs, truncate_long_docs_limit=2400)
     st.success(f"Vector Store '{vector_store_path}' with {len(vector_store.documents_list)} chunks has been successfully loaded!")
     return rag_engine
 
@@ -104,7 +104,10 @@ def get_document_parsed_content(filename):
     doc_json_path = f"{PAPERS_DIRECTORY}/{filename[:-4]}.json"
     doc_content = {}
     if os.path.exists(doc_json_path):
-        doc_content = json.load(open(doc_json_path, 'r', encoding='utf-8'))
+        try:
+            doc_content = json.load(open(doc_json_path, 'r', encoding='utf-8'))
+        except Exception as e:
+            print("Could not load document JSON", e)
     else:
         print("Problem loading document content from", doc_json_path)
     return doc_content
