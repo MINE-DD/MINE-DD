@@ -88,7 +88,7 @@ class PersistentFAISS:
         # Explicit document list to retrieve from BM25 indices
         self.documents_list = []
         
-    def initialize(self, documents:Optional[list[Document]]=None):
+    def initialize(self, documents:Optional[list[Document]]=None, truncate_long_docs_limit=0):
         """Initialize or load the vector store"""
         if self._index_exists():
             self._load_existing_index()
@@ -106,7 +106,7 @@ class PersistentFAISS:
             raise ValueError("No valid documents were provided to initialize the index! ({} documents)".format(len(documents)))
         else:
             print(f"No existing index found at {self.index_path}, creating a new one with {len(documents)} documents...")    
-            self._create_new_index(documents)
+            self._create_new_index(documents, truncate_long_docs_limit)
             if self.include_bm25:
                 self.documents_list = documents
                 self._load_bm25_index()
@@ -133,9 +133,26 @@ class PersistentFAISS:
             tokenized_corpus.append(bm25_tokenizer(passage))
         self.bm25_index = BM25Okapi(tokenized_corpus)
 
-    def _create_new_index(self, documents):
+    def _truncate_long_documents(self, documents, max_length):
+        """Truncate documents that exceed max_length"""
+        truncated_docs = []
+        for doc in documents:
+            if len(doc.page_content) > max_length:
+                truncated_content = doc.page_content[:max_length]
+                truncated_doc = Document(
+                    page_content=truncated_content,
+                    metadata=doc.metadata
+                )
+                truncated_docs.append(truncated_doc)
+            else:
+                truncated_docs.append(doc)
+        return truncated_docs
+
+    def _create_new_index(self, documents, truncate_long_docs_limit=0):
         """Create new FAISS index from documents"""
         print("Creating new FAISS index...")
+        if truncate_long_docs_limit > 0:
+            documents = self._truncate_long_documents(documents, max_length=truncate_long_docs_limit)
         self.vector_store = FAISS.from_documents(documents, self.embeddings_engine)
         self._save_index()
         print("New index created and saved")
