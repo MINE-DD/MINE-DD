@@ -22,7 +22,7 @@ OUTPUTS_DIRECTORY = 'outputs'  # Directory for output files
 # Define available models
 AVAILABLE_MODELS = [
     "ollama/llama3.2:latest",
-    "gemini/gemini-2.5-flash-lite-preview-06-17", 
+    "gemini/gemini-2.5-flash-lite", 
 ]
 
 if not PAPERS_DIRECTORY or not os.path.exists(PAPERS_DIRECTORY):
