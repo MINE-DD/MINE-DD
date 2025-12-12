@@ -60,9 +60,11 @@ class PersistentQdrant:
         self.sparse_embeddings_engine = FastEmbedSparse(model_name="Qdrant/bm25") if use_hybrid else None
         self.qdrant_url = qdrant_url
         self.use_hybrid = use_hybrid
+        self.is_remote = qdrant_url.startswith("http://") or qdrant_url.startswith("https://")
 
-        # Initialize Qdrant client
-        self.client = QdrantClient(path=qdrant_url) if qdrant_url.startswith("file://") else QdrantClient(url=qdrant_url)
+        # Only initialize client for remote connections or when needed
+        # For local paths, we'll let QdrantVectorStore manage the client to avoid locking issues
+        self.client = QdrantClient(url=self.qdrant_url) if self.is_remote else QdrantClient(path=self.qdrant_url)
         self.vector_store = None
 
         # Infer vector size by embedding a test string
@@ -72,10 +74,11 @@ class PersistentQdrant:
 
     def initialize(self, documents: Optional[List[Document]] = None, truncate_long_docs_limit=0):
         """Initialize or load the vector store"""
+
+        documents = [] if documents is None else documents
+
         if self.collection_exists():
             self._load_existing_collection()
-        elif documents is None or len(documents) == 0:
-            raise ValueError(f"No valid documents were provided to initialize the collection! (documents value is {documents})")
         else:
             print(f"No existing collection found with name '{self.collection_name}', creating a new one with {len(documents)} documents...")
             if truncate_long_docs_limit > 0:
@@ -84,6 +87,8 @@ class PersistentQdrant:
 
     def collection_exists(self):
         """Check if Qdrant collection exists"""
+        if self.client is None:
+            raise ValueError("Qdrant client is not initialized.")
         try:
             collections = self.client.get_collections().collections
             return any(col.name == self.collection_name for col in collections)
@@ -93,6 +98,8 @@ class PersistentQdrant:
 
     def reset_collection(self):
         """Delete Qdrant collection"""
+        if self.client is None:
+            raise ValueError("Qdrant client is not initialized.")
         if self.collection_exists():
             print(f"Deleting existing Qdrant collection '{self.collection_name}'...")
             self.client.delete_collection(self.collection_name)
@@ -102,14 +109,26 @@ class PersistentQdrant:
 
     def _load_existing_collection(self):
         """Load existing Qdrant collection"""
+
+        if not self.is_remote:
+            self.client = None
+
         print(f"Loading existing Qdrant collection '{self.collection_name}'")
-        self.vector_store = QdrantVectorStore.from_existing_collection(
-                embedding=self.embeddings_engine,
-                collection_name=self.collection_name,
-                url=self.qdrant_url,
-                vector_name="dense"
-                # TODO: Missing the sparse vector config for hybrid
-            )
+        vs_params = {
+            "embedding": self.embeddings_engine,
+            "collection_name": self.collection_name,
+            "vector_name": "dense"
+        }
+        # For local path storage, only pass the path (not the client)
+        # This allows QdrantVectorStore to manage its own client instance
+        if "http" in self.qdrant_url:
+            vs_params["url"] = self.qdrant_url
+        else:
+            vs_params["path"] = self.qdrant_url
+
+        # TODO: Missing the sparse vector config for hybrid
+        self.vector_store = QdrantVectorStore.from_existing_collection(**vs_params)
+        self.client = self.vector_store.client
         print("Collection loaded successfully")
 
     def _truncate_long_documents(self, documents, max_length):
@@ -129,6 +148,9 @@ class PersistentQdrant:
 
     def create_new_collection(self, documents):
         """Create new Qdrant collection from documents"""
+        if self.client is None:
+            raise ValueError("Qdrant client is not initialized.")
+
         print(f"Creating new Qdrant collection '{self.collection_name}'...")
 
         if self.use_hybrid:
@@ -188,6 +210,8 @@ class PersistentQdrant:
 
     def get_all_documents(self):
         """Get all documents from the vector store"""
+        if self.client is None:
+            raise ValueError("Qdrant client is not initialized.")
         if self.vector_store is None:
             raise ValueError("Vector store not initialized")
 
@@ -213,10 +237,13 @@ class PersistentQdrant:
         """Add new documents to existing collection"""
         if self.vector_store is None:
             raise ValueError("Vector store not initialized")
-
-        uuids = [str(uuid4()) for _ in range(len(documents))]
-        self.vector_store.add_documents(documents=documents, ids=uuids)
-        print(f"Added {len(documents)} documents to collection")
+        
+        if self.collection_exists() is False:
+            self.create_new_collection(documents)
+        else:
+            uuids = [str(uuid4()) for _ in range(len(documents))]
+            self.vector_store.add_documents(documents=documents, ids=uuids)
+            print(f"Added {len(documents)} documents to existing collection")
 
     def search(self, query, k, verbose=False):
         """Perform similarity search"""
@@ -305,11 +332,10 @@ def run_vanilla_rag(embeddings_engine, llm):
         vector_store=qdrant_db
     )
 
-    qdrant_db.reset_collection()  # For testing purposes, delete existing collection
     # Load Docs + Create a Document object for each chunk
-    if qdrant_db.collection_exists():
-        docs = []
-    else:
+    qdrant_db.initialize()
+    # qdrant_db.reset_collection() # just for tests
+    if not qdrant_db.collection_exists():
         print("No existing collection found, chunking and loading documents to create one...")
         docs = get_documents_from_directory(
             directory=PAPERS_DIRECTORY,
@@ -317,7 +343,7 @@ def run_vanilla_rag(embeddings_engine, llm):
             chunk_size=10,  # Number of sentences to merge into one Document
             overlap=2  # Number of sentences to overlap between chunks
         )
-    qdrant_db.initialize(documents=docs)
+        qdrant_db.add_documents(documents=docs)
 
     # Query Vector Store
     query = "How is campylobacter related to seasonality?"
