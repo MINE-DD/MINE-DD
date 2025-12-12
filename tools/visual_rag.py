@@ -6,8 +6,7 @@ import pandas as pd
 import os
 import json
 import time
-import faiss
-from minedd.rag import PersistentFAISS, SimpleRAG
+from minedd.rag import PersistentQdrant, SimpleRAG
 from minedd.document import get_documents_from_directory
 from langchain_ollama import OllamaEmbeddings
 from langchain.chat_models import init_chat_model
@@ -19,7 +18,7 @@ PAPERS_DIRECTORY = os.getenv("PAPERS_DIRECTORY", None) # Directory containing th
 EMBEDDING = os.getenv("LLM_EMBEDDER", "mxbai-embed-large:latest") # Embedder model to use
 if "/" in EMBEDDING:
     EMBEDDING = EMBEDDING.split("/")[-1] # in case someome put the "ollama/embedder-model-syntax"
-VECTOR_STORE_PATH = os.getenv("SAVE_VECTOR_INDEX", "minedd_rag_index")
+VECTOR_STORE_NAME = os.getenv("SAVE_VECTOR_INDEX", "minedd_rag_index")
 CHUNK_SIZE = 10  # Number of sentences to merge into one Document
 CHUNK_OVERLAP = 4     # Number of sentences to overlap between chunks
 
@@ -48,13 +47,12 @@ def initialize_engine(selected_model):
     embeddings = OllamaEmbeddings(model=EMBEDDING)
 
     # Index and Store Embeddings
-    index = faiss.IndexFlatL2(len(embeddings.embed_query("hello world")))
-    vector_store_path = VECTOR_STORE_PATH
-    vector_store = PersistentFAISS(
-        index_path=vector_store_path,
-        index=index, 
-        embeddings_engine=embeddings,
-        include_bm25=True
+    vector_store_path = VECTOR_STORE_NAME
+    vector_store = PersistentQdrant(
+        collection_name=VECTOR_STORE_NAME, 
+        embeddings_engine=embeddings, 
+        qdrant_url="http://localhost:6333", 
+        use_hybrid=False
         )
     
     # Create RAG Engine
@@ -78,7 +76,7 @@ def initialize_engine(selected_model):
         )
         print(f"Creating Vector Store at '{vector_store_path}'")
         vector_store.initialize(documents=docs)
-    st.success(f"Vector Store '{vector_store_path}' with {len(vector_store.documents_list)} chunks has been successfully loaded!")
+    st.success(f"Vector Store '{vector_store_path}' with {len(list(vector_store.get_all_documents()))} chunks has been successfully loaded!")
     return rag_engine
 
 
@@ -209,9 +207,7 @@ if search_button and question:
             start_time = time.time()
             contexts, response = st.session_state.engine.query(question, 
                                                                k=top_k, 
-                                                               answer_length=answer_length, 
-                                                               hybrid=True, 
-                                                               num_candidates=top_k*2)
+                                                               answer_length=answer_length)
             execution_time = time.time() - start_time
             
             # Display results in a nicely formatted way

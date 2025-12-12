@@ -72,19 +72,17 @@ class PersistentQdrant:
 
     def initialize(self, documents: Optional[List[Document]] = None, truncate_long_docs_limit=0):
         """Initialize or load the vector store"""
-        if self._collection_exists():
+        if self.collection_exists():
             self._load_existing_collection()
-        elif documents is None:
-            print(f"No existing collection found with name '{self.collection_name}', please provide documents to create a new one...")
-        elif len(documents) == 0:
-            raise ValueError(f"No valid documents were provided to initialize the collection! ({len(documents)} documents)")
+        elif documents is None or len(documents) == 0:
+            raise ValueError(f"No valid documents were provided to initialize the collection! (documents value is {documents})")
         else:
             print(f"No existing collection found with name '{self.collection_name}', creating a new one with {len(documents)} documents...")
             if truncate_long_docs_limit > 0:
                 documents = self._truncate_long_documents(documents, max_length=truncate_long_docs_limit)
-            self._create_new_collection(documents)
+            self.create_new_collection(documents)
 
-    def _collection_exists(self):
+    def collection_exists(self):
         """Check if Qdrant collection exists"""
         try:
             collections = self.client.get_collections().collections
@@ -93,14 +91,14 @@ class PersistentQdrant:
             print(f"Error checking collection existence: {e}")
             return False
 
-    def delete_collection(self, collection_name: str):
+    def reset_collection(self):
         """Delete Qdrant collection"""
-        if self._collection_exists():
-            print(f"Deleting existing Qdrant collection '{collection_name}'...")
-            self.client.delete_collection(collection_name)
+        if self.collection_exists():
+            print(f"Deleting existing Qdrant collection '{self.collection_name}'...")
+            self.client.delete_collection(self.collection_name)
             print("Collection deleted successfully")
         else:
-            print(f"Collection '{collection_name}' does not exist, nothing to delete.")
+            print(f"Collection '{self.collection_name}' does not exist, nothing to delete.")
 
     def _load_existing_collection(self):
         """Load existing Qdrant collection"""
@@ -109,6 +107,8 @@ class PersistentQdrant:
                 embedding=self.embeddings_engine,
                 collection_name=self.collection_name,
                 url=self.qdrant_url,
+                vector_name="dense"
+                # TODO: Missing the sparse vector config for hybrid
             )
         print("Collection loaded successfully")
 
@@ -127,7 +127,7 @@ class PersistentQdrant:
                 truncated_docs.append(doc)
         return truncated_docs
 
-    def _create_new_collection(self, documents):
+    def create_new_collection(self, documents):
         """Create new Qdrant collection from documents"""
         print(f"Creating new Qdrant collection '{self.collection_name}'...")
 
@@ -305,9 +305,9 @@ def run_vanilla_rag(embeddings_engine, llm):
         vector_store=qdrant_db
     )
 
-    qdrant_db.delete_collection(collection_name="minedd_rag_mini")  # For testing purposes, delete existing collection
+    qdrant_db.reset_collection()  # For testing purposes, delete existing collection
     # Load Docs + Create a Document object for each chunk
-    if qdrant_db._collection_exists():
+    if qdrant_db.collection_exists():
         docs = []
     else:
         print("No existing collection found, chunking and loading documents to create one...")
