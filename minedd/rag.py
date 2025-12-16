@@ -57,7 +57,7 @@ class PersistentQdrant:
     def __init__(self, collection_name, embeddings_engine, qdrant_url, use_hybrid=False):
         self.collection_name = collection_name
         self.embeddings_engine = embeddings_engine
-        self.sparse_embeddings_engine = FastEmbedSparse(model_name="Qdrant/bm25") if use_hybrid else None
+        self.sparse_embeddings_engine = FastEmbedSparse(model_name="Qdrant/bm42") if use_hybrid else None
         self.qdrant_url = qdrant_url
         self.use_hybrid = use_hybrid
         self.is_remote = qdrant_url.startswith("http://") or qdrant_url.startswith("https://")
@@ -266,12 +266,6 @@ class SimpleRAG:
         self.vector_store = vector_store
         self.prompt = ChatPromptTemplate([("user", QA_VANILLA_PROMPT)])
         self.chain = self.prompt | self.llm
-
-    def load_documents(self, documents):
-        """Load documents into the vector store"""
-        if self.vector_store is None:
-            raise ValueError("Vector store not initialized")
-        self.vector_store.add_documents(documents)
     
     def _make_context_key(self, document: Document):
         """Create a unique key for the document based on its metadata"""
@@ -348,17 +342,10 @@ def run_vanilla_rag(embeddings_engine, llm):
     # Query Vector Store
     query = "How is campylobacter related to seasonality?"
 
-    ## 1- Retrieval Options
-    print("\n\n----- Qdrant Simple Vector Search\n\n")
-    results = qdrant_db.search(query, k=5, verbose=True)
-
-    for r in results:
-        print(r)
-
-    ## 2 - Retrieval + Generation
+    ## Retrieval + Generation
     print("\n\n========== RAG Response ===========\n\n")
-    contexts, response = rag_engine.query(question=query, k=5, verbose=True)
-    print("\n\n", response)
+    contexts, final_response = rag_engine.query(question=query, k=5, verbose=True)
+    print("\n\n******* FINAL RESPONSE:\n", final_response)
 
 
 if __name__ == "__main__":
