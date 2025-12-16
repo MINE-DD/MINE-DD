@@ -1,7 +1,6 @@
 # Qdrant-based RAG implementation with hybrid search (vector + keyword)
 
 import re
-import os
 from typing import Optional, List
 from uuid import uuid4
 
