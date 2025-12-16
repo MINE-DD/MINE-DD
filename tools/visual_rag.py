@@ -7,14 +7,13 @@ import os
 import json
 import time
 from minedd.rag import PersistentQdrant, SimpleRAG
-from minedd.document import get_documents_from_directory
 from langchain_ollama import OllamaEmbeddings
 from langchain.chat_models import init_chat_model
 import dotenv
 dotenv.load_dotenv('minedd/.env')  # Load environment variables from .env file in the minedd directory
 
 # Important paths and configurations
-PAPERS_DIRECTORY = os.getenv("PAPERS_DIRECTORY", None) # Directory containing the PDF papers
+PAPERS_DIRECTORY = os.getenv("PAPERS_DIRECTORY", "default_papers_dir") # Directory containing the PDF papers
 EMBEDDING = os.getenv("LLM_EMBEDDER", "mxbai-embed-large:latest") # Embedder model to use
 if "/" in EMBEDDING:
     EMBEDDING = EMBEDDING.split("/")[-1] # in case someome put the "ollama/embedder-model-syntax"
@@ -48,8 +47,7 @@ def initialize_engine(selected_model):
 
     # Index and Store Embeddings
     vector_store_path = VECTOR_STORE_NAME
-    vector_store = PersistentQdrant(
-        collection_name=VECTOR_STORE_NAME, 
+    vector_db = PersistentQdrant(
         embeddings_engine=embeddings, 
         qdrant_url="http://localhost:6333", 
         use_hybrid=False
@@ -59,25 +57,20 @@ def initialize_engine(selected_model):
     rag_engine = SimpleRAG(
         embeddings_engine=embeddings,
         generative_llm=llm,
-        vector_store=vector_store
+        vector_db=vector_db
     )
 
-    # ## Load Docs + Create a Document object for each chunk
-    if os.path.exists(vector_store_path) and os.listdir(vector_store_path):
-        print(f"Loading existing vector store from {vector_store_path}")
-        vector_store.initialize()
-    else:
-        print(f"No existing vector store found at {vector_store_path}. Chunking and Loading Documents from '{PAPERS_DIRECTORY}'...")
-        docs = get_documents_from_directory(
-            directory=PAPERS_DIRECTORY,
-            extensions=['.json'],
-            chunk_size=CHUNK_SIZE,
-            overlap=CHUNK_OVERLAP
-        )
-        print(f"Creating Vector Store at '{vector_store_path}'")
-        vector_store.initialize(documents=docs)
-    st.success(f"Vector Store '{vector_store_path}' with {len(list(vector_store.get_all_documents()))} chunks has been successfully loaded!")
-    return rag_engine
+    # Load Docs + Create a Document object for each chunk
+    vector_store = vector_db.init_from_filepath(
+        collection_name=VECTOR_STORE_NAME,
+        filepath=PAPERS_DIRECTORY,
+        chunk_size=CHUNK_SIZE,
+        overlap=CHUNK_OVERLAP,
+        replace_existing=False
+    )
+    
+    st.success(f"Vector Store '{vector_store_path}' with {len(list(vector_db.get_all_documents(VECTOR_STORE_NAME)))} chunks has been successfully loaded!")
+    return vector_store, rag_engine
 
 
 # Function to get document names
@@ -149,7 +142,7 @@ selected_model = st.selectbox(
 model_locale = "[LOCAL]" if "ollama" in selected_model else "[REMOTE]"
 if 'current_model' not in st.session_state or st.session_state.current_model != selected_model:
     st.session_state.current_model = selected_model
-    st.session_state.engine = initialize_engine(selected_model)
+    st.session_state.vector_store, st.session_state.rag_engine = initialize_engine(selected_model)
     st.success(f'Model switched to: **{selected_model}**  {model_locale}')
 
 
@@ -208,9 +201,12 @@ if search_button and question:
     with st.spinner('Searching for answers...'):
         try:
             start_time = time.time()
-            contexts, response = st.session_state.engine.query(question, 
-                                                               k=top_k, 
-                                                               answer_length=answer_length)
+            contexts, response = st.session_state.rag_engine.query(
+                                                        st.session_state.vector_store,
+                                                        question, 
+                                                        k=top_k, 
+                                                        answer_length=answer_length
+                                                    )
             execution_time = time.time() - start_time
             
             # Display results in a nicely formatted way

@@ -316,13 +316,15 @@ class SimpleRAG:
         # doc_title = document.metadata.get('title', 'No Title').replace(' ', '_')[:10]
         doc_pages = document.metadata.get('pages')
         doc_key = document.metadata.get('parent_doc_key', 'NoKEY')
-        full_context = f"{document.page_content} [{doc_key} pages {doc_pages}]"
+        full_context = f"{self._clean_context(document.page_content)} [{doc_key} pages {doc_pages}]"
         return full_context
 
     def _clean_context(self, context: str):
         """Remove original citation indices form the oriignal text, as it may confuse the LLM"""
         # Remove parentheses containing comma-separated numbers, e.g. (2, 3, 11, 12)
-        context = re.sub(r'\(\s*\d+(?:\s*,\s*\d+)*\s*\)', '', context) 
+        context = re.sub(r'\(\s*\d+(?:\s*,\s*\d+)*\s*\)', '', context)
+        # Remove square brackets containing comma-separated numbers, e.g. [2, 3, 11, 12] or [7,32]
+        context = re.sub(r'\[\s*\d+(?:\s*,\s*\d+)*\s*\]', '', context)
         # Remove square brackets with numbers, e.g. [2, 3, 11, 12]
         context = re.sub(r'(?:\[\d+\])+', '', context)
         # Remove standalone numbers in square brackets, e.g. [2], [3]
