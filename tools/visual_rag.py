@@ -102,7 +102,10 @@ def get_document_parsed_content(filename):
     doc_json_path = f"{PAPERS_DIRECTORY}/{filename[:-4]}.json"
     doc_content = {}
     if os.path.exists(doc_json_path):
-        doc_content = json.load(open(doc_json_path, 'r', encoding='utf-8'))
+        try:
+            doc_content = json.load(open(doc_json_path, 'r', encoding='utf-8'))
+        except Exception as e:
+            print("Could not load document JSON", e)
     else:
         print("Problem loading document content from", doc_json_path)
     return doc_content
