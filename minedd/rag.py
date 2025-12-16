@@ -1,24 +1,18 @@
-# https://python.langchain.com/api_reference/community/vectorstores/langchain_community.vectorstores.faiss.FAISS.html#langchain_community.vectorstores.faiss.FAISS
+# Qdrant-based RAG implementation with hybrid search (vector + keyword)
 
 import re
-import os
-from typing import Optional
-import faiss
-import numpy as np
+from typing import Optional, List
 from uuid import uuid4
-from rank_bm25 import BM25Okapi
-from sklearn.feature_extraction import _stop_words
-import string
-from tqdm import tqdm
 
-from langchain.retrievers.document_compressors.cross_encoder_rerank import CrossEncoderReranker
-from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 from langchain_ollama import OllamaEmbeddings
 from langchain.chat_models import init_chat_model
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_community.vectorstores import FAISS
-from langchain_community.docstore.in_memory import InMemoryDocstore
 from langchain_core.documents import Document
+
+from qdrant_client import QdrantClient, models
+from qdrant_client.http.models import Distance, SparseVectorParams, VectorParams
+from langchain_qdrant import QdrantVectorStore, RetrievalMode, FastEmbedSparse
+
 from minedd.document import get_documents_from_directory
 from dotenv import load_dotenv
 load_dotenv(override=True)
@@ -58,80 +52,83 @@ QA_VANILLA_PROMPT = (
     "Answer ({answer_length}):"
 )
 
-def bm25_tokenizer(text):
-    tokenized_doc = []
-    for token in text.lower().split():
-        token = token.strip(string.punctuation)
-        if len(token) > 0 and token not in _stop_words.ENGLISH_STOP_WORDS:
-            tokenized_doc.append(token)
-    return tokenized_doc
-
-
-def get_bm25_index(texts):
-    tokenized_corpus = []
-    for passage in tqdm(texts):
-        tokenized_corpus.append(bm25_tokenizer(passage))
-    bm25 = BM25Okapi(tokenized_corpus)
-    return bm25
-
-
-class PersistentFAISS:
-    def __init__(self, index_path, index, embeddings_engine, include_bm25=False):
-        self.index_path = index_path
+class PersistentQdrant:
+    def __init__(self, collection_name, embeddings_engine, qdrant_url, use_hybrid=False):
+        self.collection_name = collection_name
         self.embeddings_engine = embeddings_engine
-        # Vector index
-        self.vector_index = index
+        self.sparse_embeddings_engine = FastEmbedSparse(model_name="Qdrant/bm42") if use_hybrid else None
+        self.qdrant_url = qdrant_url
+        self.use_hybrid = use_hybrid
+        self.is_remote = qdrant_url.startswith("http://") or qdrant_url.startswith("https://")
+
+        # Only initialize client for remote connections or when needed
+        # For local paths, we'll let QdrantVectorStore manage the client to avoid locking issues
+        self.client = QdrantClient(url=self.qdrant_url) if self.is_remote else QdrantClient(path=self.qdrant_url)
         self.vector_store = None
-        # BM25 index (In-memory)
-        self.include_bm25 = include_bm25
-        self.bm25_index = None
-        # Explicit document list to retrieve from BM25 indices
-        self.documents_list = []
-        
-    def initialize(self, documents:Optional[list[Document]]=None, truncate_long_docs_limit=0):
+
+        # Infer vector size by embedding a test string
+        test_embedding = self.embeddings_engine.embed_query("test")
+        self.dense_vector_size = len(test_embedding)
+        print(f"Using {self.embeddings_engine} embedder. Dense vector size: {self.dense_vector_size}")
+
+    def initialize(self, documents: Optional[List[Document]] = None, truncate_long_docs_limit=0):
         """Initialize or load the vector store"""
-        if self._index_exists():
-            self._load_existing_index()
-            self.documents_list = list(self.get_all_documents())
-            self._load_bm25_index() if self.include_bm25 else None
-        elif documents is None:
-            print(f"No existing index found at {self.index_path}, creating an empty new one...") 
-            self.vector_store = FAISS(
-                embedding_function=self.embeddings_engine,
-                index=self.vector_index,
-                docstore=InMemoryDocstore(),
-                index_to_docstore_id={},
-            )
-        elif len(documents) == 0:
-            raise ValueError("No valid documents were provided to initialize the index! ({} documents)".format(len(documents)))
+
+        documents = [] if documents is None else documents
+
+        if self.collection_exists():
+            self._load_existing_collection()
         else:
-            print(f"No existing index found at {self.index_path}, creating a new one with {len(documents)} documents...")    
-            self._create_new_index(documents, truncate_long_docs_limit)
-            if self.include_bm25:
-                self.documents_list = documents
-                self._load_bm25_index()
-    
+            print(f"No existing collection found with name '{self.collection_name}', creating a new one with {len(documents)} documents...")
+            if truncate_long_docs_limit > 0:
+                documents = self._truncate_long_documents(documents, max_length=truncate_long_docs_limit)
+            self.create_new_collection(documents)
 
-    def _index_exists(self):
-        """Check if FAISS index exists"""
-        return os.path.exists(self.index_path) and os.listdir(self.index_path)
-    
-    def _load_existing_index(self):
-        """Load existing FAISS index"""
-        print(f"Loading existing FAISS index from {self.index_path}")
-        self.vector_store = FAISS.load_local(
-            self.index_path,
-            self.embeddings_engine,
-            allow_dangerous_deserialization=True
-        )
-        print("Index loaded successfully")
+    def collection_exists(self):
+        """Check if Qdrant collection exists"""
+        if self.client is None:
+            raise ValueError("Qdrant client is not initialized.")
+        try:
+            collections = self.client.get_collections().collections
+            return any(col.name == self.collection_name for col in collections)
+        except Exception as e:
+            print(f"Error checking collection existence: {e}")
+            return False
 
-    def _load_bm25_index(self):
-        tokenized_corpus = []
-        texts = [doc.page_content for doc in self.documents_list]
-        for passage in tqdm(texts):
-            tokenized_corpus.append(bm25_tokenizer(passage))
-        self.bm25_index = BM25Okapi(tokenized_corpus)
+    def reset_collection(self):
+        """Delete Qdrant collection"""
+        if self.client is None:
+            raise ValueError("Qdrant client is not initialized.")
+        if self.collection_exists():
+            print(f"Deleting existing Qdrant collection '{self.collection_name}'...")
+            self.client.delete_collection(self.collection_name)
+            print("Collection deleted successfully")
+        else:
+            print(f"Collection '{self.collection_name}' does not exist, nothing to delete.")
+
+    def _load_existing_collection(self):
+        """Load existing Qdrant collection"""
+
+        if not self.is_remote:
+            self.client = None
+
+        print(f"Loading existing Qdrant collection '{self.collection_name}'")
+        vs_params = {
+            "embedding": self.embeddings_engine,
+            "collection_name": self.collection_name,
+            "vector_name": "dense"
+        }
+        # For local path storage, only pass the path (not the client)
+        # This allows QdrantVectorStore to manage its own client instance
+        if "http" in self.qdrant_url:
+            vs_params["url"] = self.qdrant_url
+        else:
+            vs_params["path"] = self.qdrant_url
+
+        # TODO: Missing the sparse vector config for hybrid
+        self.vector_store = QdrantVectorStore.from_existing_collection(**vs_params)
+        self.client = self.vector_store.client
+        print("Collection loaded successfully")
 
     def _truncate_long_documents(self, documents, max_length):
         """Truncate documents that exceed max_length"""
@@ -148,76 +145,117 @@ class PersistentFAISS:
                 truncated_docs.append(doc)
         return truncated_docs
 
-    def _create_new_index(self, documents, truncate_long_docs_limit=0):
-        """Create new FAISS index from documents"""
-        print("Creating new FAISS index...")
-        if truncate_long_docs_limit > 0:
-            documents = self._truncate_long_documents(documents, max_length=truncate_long_docs_limit)
-        self.vector_store = FAISS.from_documents(documents, self.embeddings_engine)
-        self._save_index()
-        print("New index created and saved")
-    
-    def _save_index(self):
-        """Save the current index"""
-        if self.vector_store is None:
-            raise ValueError("Vector store not initialized")
-        os.makedirs(self.index_path, exist_ok=True)
-        self.vector_store.save_local(self.index_path)
-    
+    def create_new_collection(self, documents):
+        """Create new Qdrant collection from documents"""
+        if self.client is None:
+            raise ValueError("Qdrant client is not initialized.")
+
+        print(f"Creating new Qdrant collection '{self.collection_name}'...")
+
+        if self.use_hybrid:
+            # Create collection with BOTH dense and sparse vectors
+            self.client.create_collection(
+                collection_name=self.collection_name,
+                vectors_config={
+                    "dense": VectorParams(
+                        size=self.dense_vector_size,  # Inferred from embeddings engine
+                        distance=Distance.COSINE,
+                        on_disk=True  # Store dense vectors on disk
+                    )
+                },
+                sparse_vectors_config={
+                    "bm25": SparseVectorParams(
+                        index=models.SparseIndexParams(
+                            on_disk=True  # Store BM25 on disk
+                        )
+                    )
+                }
+            )
+            # Create vector store with hybrid mode
+            self.vector_store = QdrantVectorStore(
+                client=self.client,
+                collection_name=self.collection_name,
+                embedding=self.embeddings_engine,
+                sparse_embedding=self.sparse_embeddings_engine,
+                retrieval_mode=RetrievalMode.HYBRID,  # Use both!
+                vector_name="dense",
+                sparse_vector_name="bm25"
+            )
+        else:
+            # Create collection with only dense vectors
+            self.client.create_collection(
+                collection_name=self.collection_name,
+                vectors_config={
+                    "dense": VectorParams(
+                        size=self.dense_vector_size,  # Inferred from embeddings engine
+                        distance=Distance.COSINE,
+                        on_disk=True  # Store dense vectors on disk
+                    )
+                }
+            )
+            # Create vector store with hybrid mode
+            self.vector_store = QdrantVectorStore(
+                client=self.client,
+                collection_name=self.collection_name,
+                embedding=self.embeddings_engine,
+                vector_name="dense",
+            )
+
+        # Add documents
+        uuids = [str(uuid4()) for _ in range(len(documents))]
+        self.vector_store.add_documents(documents, ids=uuids)
+
+        print(f"New collection '{self.collection_name}' created and saved with {len(documents)} documents")
+
     def get_all_documents(self):
         """Get all documents from the vector store"""
+        if self.client is None:
+            raise ValueError("Qdrant client is not initialized.")
         if self.vector_store is None:
             raise ValueError("Vector store not initialized")
-        
-        return self.vector_store.docstore._dict.values() # type: ignore
+
+        # Retrieve all points from Qdrant
+        scroll_result = self.client.scroll(
+            collection_name=self.collection_name,
+            limit=10000,  # Adjust based on your needs
+            with_payload=True,
+            with_vectors=False,
+        )
+
+        for point in scroll_result[0]:
+            if point.payload is None:
+                print(f"Warning: Point ID {point.id} has no payload, skipping...")
+                continue
+            doc = Document(
+                page_content=point.payload.get("page_content", ""),
+                metadata=point.payload.get("metadata", {})
+            )
+            yield doc
 
     def add_documents(self, documents):
-        """Add new documents to existing index"""
+        """Add new documents to existing collection"""
         if self.vector_store is None:
             raise ValueError("Vector store not initialized")
-        uuids = [str(uuid4()) for _ in range(len(documents))]
-        self.vector_store.add_documents(documents=documents, ids=uuids)
-        self._save_index()
-        print(f"Added {len(documents)} documents and saved index")
-    
-    def keyword_and_reranking_search(self, query, top_k=3, num_candidates=10, verbose=False):
-        print(f"Input question: {query}\nTop-K: {top_k}\nNum Candidates: {num_candidates}", query)
-        if self.vector_store is None or self.bm25_index is None:
-            raise ValueError("Vector store and BM25 index need to be initialized to use hybrid search!")
-
-        ##### BM25 search (lexical search) #####
-        bm25_scores = self.bm25_index.get_scores(bm25_tokenizer(query))
-        top_n = np.argpartition(bm25_scores, -num_candidates)[-num_candidates:]
-        bm25_hits = [{'corpus_id': idx, 'score': bm25_scores[idx]} for idx in top_n]
-        bm25_hits = sorted(bm25_hits, key=lambda x: x['score'], reverse=True)
-
-        if verbose:
-            print("Top-K lexical search (BM25) hits")
-            for hit in bm25_hits[0:top_k]:
-                print("\t{:.3f}\t{}".format(hit['score'], self.documents_list[hit['corpus_id']].page_content.replace("\n", " ")))
-
-        # Reranking with HuggingFace
-        docs_for_reranking = [self.documents_list[hit['corpus_id']] for hit in bm25_hits]
-        model = HuggingFaceCrossEncoder(model_name="BAAI/bge-reranker-base")
-        reranker = CrossEncoderReranker(model=model, top_n=top_k)
-        reranked_docs = reranker.compress_documents(documents=docs_for_reranking, query=query)
         
-        if verbose:
-            print("Top-K reranked hits")
-            for doc in reranked_docs:
-                print("\t{}".format(doc.page_content.replace("\n", " ")))
-        
-        return reranked_docs
+        if self.collection_exists() is False:
+            self.create_new_collection(documents)
+        else:
+            uuids = [str(uuid4()) for _ in range(len(documents))]
+            self.vector_store.add_documents(documents=documents, ids=uuids)
+            print(f"Added {len(documents)} documents to existing collection")
 
-    def search(self, query, k, hybrid=False, num_candidates=10, verbose=False):
+    def search(self, query, k, verbose=False):
         """Perform similarity search"""
         if self.vector_store is None:
             raise ValueError("Vector store not initialized")
         
-        if hybrid and self.include_bm25:
-            return self.keyword_and_reranking_search(query, top_k=k, num_candidates=num_candidates, verbose=verbose)
-        else:
-            return self.vector_store.similarity_search(query, k=k)
+        results = self.vector_store.similarity_search(query, k=k)
+        
+        if verbose:
+            for res in results:
+                print(f"* {res.page_content} [{res.metadata}]")
+        
+        return results
 
 
 class SimpleRAG:
@@ -227,12 +265,6 @@ class SimpleRAG:
         self.vector_store = vector_store
         self.prompt = ChatPromptTemplate([("user", QA_VANILLA_PROMPT)])
         self.chain = self.prompt | self.llm
-
-    def load_documents(self, documents):
-        """Load documents into the vector store"""
-        if self.vector_store is None:
-            raise ValueError("Vector store not initialized")
-        self.vector_store.add_documents(documents)
     
     def _make_context_key(self, document: Document):
         """Create a unique key for the document based on its metadata"""
@@ -254,9 +286,9 @@ class SimpleRAG:
         context = re.sub(r'\(\d+\)[\.\,]+', '', context)
         return context
 
-    def query(self, question, k, hybrid=False, num_candidates=10, answer_length=200, verbose=False):
+    def query(self, question, k, answer_length=200, verbose=False):
         # Retrieve closest passages (results are a list of LangChain Documents)           
-        results = self.vector_store.search(question, k=k, hybrid=hybrid, num_candidates=num_candidates, verbose=verbose)
+        results = self.vector_store.search(question, k=k, verbose=verbose)
         context = "\n\n".join([self._make_context_key(r) for r in results])
         print(f"Retrieved {len(results)} results")
         if verbose:
@@ -274,61 +306,45 @@ class SimpleRAG:
 
 def run_vanilla_rag(embeddings_engine, llm):
 
-    PAPERS_DIRECTORY = os.getenv("PAPERS_DIRECTORY", "papers_minedd")
-    SAVE_VECTOR_PATH = os.getenv("SAVE_VECTOR_INDEX", "minedd_rag_index")
-    
-    # Index and Store Embeddings
-    index = faiss.IndexFlatL2(len(embeddings_engine.embed_query("hello world")))
-    vector_store_path = SAVE_VECTOR_PATH
-    vector_store = PersistentFAISS(
-        index_path=vector_store_path,
-        index=index, 
+    PAPERS_DIRECTORY = "/Users/jose/papers_minedd_mini" #os.getenv("PAPERS_DIRECTORY", "papers_minedd")
+    COLLECTION_NAME = "minedd_rag_mini" #os.getenv("QDRANT_COLLECTION_NAME", "minedd_rag_collection")
+    QDRANT_URL = "http://localhost:6333" #os.getenv("QDRANT_URL", "http://localhost:6333")
+
+    # Initialize Qdrant Vector Store
+    qdrant_db = PersistentQdrant(
+        collection_name=COLLECTION_NAME,
         embeddings_engine=embeddings_engine,
-        include_bm25=True
-        )
-    
+        qdrant_url=QDRANT_URL
+    )
+
+
     # Create RAG Engine
     rag_engine = SimpleRAG(
         embeddings_engine=embeddings_engine,
         generative_llm=llm,
-        vector_store=vector_store
+        vector_store=qdrant_db
     )
 
-    # ## Load Docs + Create a Document object for each chunk
-    if os.path.exists(vector_store_path) and os.listdir(vector_store_path):
-        print(f"Loading existing vector store from {vector_store_path}")
-        vector_store.initialize()
-    else:
-        print(f"No existing vector store found at {vector_store_path}, Chunking and Loading Documents to create one...")
+    # Load Docs + Create a Document object for each chunk
+    qdrant_db.initialize()
+    # qdrant_db.reset_collection() # just for tests
+    if not qdrant_db.collection_exists():
+        print("No existing collection found, chunking and loading documents to create one...")
         docs = get_documents_from_directory(
             directory=PAPERS_DIRECTORY,
             extensions=['.json'],
-            chunk_size=10, # Number of sentences to merge into one Document
-            overlap=2 # Number of sentences to overlap between chunks
+            chunk_size=10,  # Number of sentences to merge into one Document
+            overlap=2  # Number of sentences to overlap between chunks
         )
-        vector_store.initialize(documents=docs)
+        qdrant_db.add_documents(documents=docs)
 
-    # 0 - Query Vector Store
+    # Query Vector Store
     query = "How is campylobacter related to seasonality?"
 
-    ## 1- Retrieval Options
-    # We'll use embedding search. But ideally we'd do hybrid
-    print("\n\n----- FAISS Index Simple Vector Search\n\n")
-    results = vector_store.search(query, k=5, hybrid=False, num_candidates=30, verbose=True)
-
-    for r in results:
-        print(r)
-    
-    print("\n\n----- FAISS Index Hybrid Vector Search\n\n")
-    results = vector_store.search(query, k=5, hybrid=True, num_candidates=30, verbose=True)
-
-    for r in results:
-        print(r)
-    
-    ## 2 - Retrieval + Generation
-    print("\n\n----- RAG Response \n\n")
-    contexts, response = rag_engine.query(question=query, k=5, hybrid=True, num_candidates=20, verbose=True)
-    print("\n\n",response)
+    ## Retrieval + Generation
+    print("\n\n========== RAG Response ===========\n\n")
+    contexts, final_response = rag_engine.query(question=query, k=5, verbose=True)
+    print("\n\n******* FINAL RESPONSE:\n", final_response)
 
 
 if __name__ == "__main__":
