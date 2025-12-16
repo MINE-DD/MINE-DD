@@ -35,8 +35,8 @@ class TestRag(unittest.TestCase):
         self.mock_client = MagicMock()
         self.mock_client_class.return_value = self.mock_client
 
-        # Create a shared PersistentQdrant instance
-        self.persistent_qdrant = PersistentQdrant("test_collection", self.mock_embeddings, self.qdrant_path)
+        # Create a shared PersistentQdrant instance (new signature)
+        self.persistent_qdrant = PersistentQdrant(self.mock_embeddings, self.qdrant_path, use_hybrid=False)
 
     def tearDown(self):
         # Clean up patches and temp directory
@@ -45,7 +45,7 @@ class TestRag(unittest.TestCase):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     @patch('minedd.rag.QdrantVectorStore')
-    def test_persistent_qdrant_initialize_load_existing(self, mock_vector_store_class):
+    def test_persistent_qdrant_init_from_document_list_load_existing(self, mock_vector_store_class):
         # Setup mocks for existing collection
         mock_collection = MagicMock()
         mock_collection.name = "test_collection"
@@ -56,11 +56,16 @@ class TestRag(unittest.TestCase):
         mock_vector_store_class.from_existing_collection.return_value = mock_vector_store
 
         # Initialize and verify collection was loaded
-        self.persistent_qdrant.initialize()
+        vector_store = self.persistent_qdrant.init_from_document_list(
+            collection_name="test_collection",
+            documents=self.documents, #type: ignore
+            replace_existing=False
+        )
         mock_vector_store_class.from_existing_collection.assert_called_once()
+        self.assertIsNotNone(vector_store)
 
     @patch('minedd.rag.QdrantVectorStore')
-    def test_persistent_qdrant_initialize_create_new(self, mock_vector_store_class):
+    def test_persistent_qdrant_init_from_document_list_create_new(self, mock_vector_store_class):
         # Setup mocks for new collection
         self.mock_client.get_collections.return_value.collections = []  # No existing collections
 
@@ -72,22 +77,30 @@ class TestRag(unittest.TestCase):
         documents = [mock_document]
 
         # Initialize and verify collection was created
-        self.persistent_qdrant.initialize(documents=documents)
+        vector_store = self.persistent_qdrant.init_from_document_list(
+            collection_name="test_collection",
+            documents=documents, #type: ignore
+            replace_existing=False
+        )
         self.mock_client.create_collection.assert_called_once()
         mock_vector_store.add_documents.assert_called_once()
+        self.assertIsNotNone(vector_store)
 
-    def test_persistent_qdrant_add_documents(self):
-        # Setup mock vector store and mock collection_exists to return True
+    def test_persistent_qdrant_add_documents_to_vector_store(self):
+        # Setup mock vector store
         mock_vector_store = MagicMock()
-        self.persistent_qdrant.vector_store = mock_vector_store
 
-        # Mock collection_exists to avoid trying to create a new collection
-        with patch.object(self.persistent_qdrant, 'collection_exists', return_value=True):
-            # Add documents and verify
-            self.persistent_qdrant.add_documents(self.documents)
-            mock_vector_store.add_documents.assert_called_once()
+        # Add documents and verify
+        result = self.persistent_qdrant.add_documents_to_vector_store(mock_vector_store, self.documents) #type: ignore
+        mock_vector_store.add_documents.assert_called_once()
+        self.assertTrue(result)
 
     def test_persistent_qdrant_get_all_documents(self):
+        # Setup mock collection
+        mock_collection = MagicMock()
+        mock_collection.name = "test_collection"
+        self.mock_client.get_collections.return_value.collections = [mock_collection]
+
         # Setup mock points returned from Qdrant
         mock_point1 = MagicMock()
         mock_point1.payload = {"page_content": "test content 1", "metadata": {}}
@@ -95,11 +108,8 @@ class TestRag(unittest.TestCase):
         mock_point2.payload = {"page_content": "test content 2", "metadata": {}}
         self.mock_client.scroll.return_value = ([mock_point1, mock_point2], None)
 
-        mock_vector_store = MagicMock()
-        self.persistent_qdrant.vector_store = mock_vector_store
-
         # Get all documents and verify
-        documents = list(self.persistent_qdrant.get_all_documents())
+        documents = list(self.persistent_qdrant.get_all_documents("test_collection"))
         self.assertEqual(len(documents), 2)
         self.assertEqual(documents[0].page_content, "test content 1")
 
@@ -107,30 +117,34 @@ class TestRag(unittest.TestCase):
         # Setup mock vector store
         mock_vector_store = MagicMock()
         mock_vector_store.similarity_search.return_value = self.documents
-        self.persistent_qdrant.vector_store = mock_vector_store
 
         # Perform search and verify
-        self.persistent_qdrant.search("query", k=2)
+        results = self.persistent_qdrant.search(mock_vector_store, "query", k=2)
         mock_vector_store.similarity_search.assert_called_with("query", k=2)
+        self.assertEqual(len(results), 2)
 
     def test_simple_rag_query(self):
-        rag = SimpleRAG(self.mock_embeddings, self.mock_llm, self.mock_vector_store)
-
+        # Create mock PersistentQdrant
+        mock_persistent_qdrant = MagicMock()
         mock_result = MagicMock()
         mock_result.page_content = "some text"
         mock_result.metadata = {"parent_doc_key": "Test_Key", "pages": "1-2"}
+        mock_persistent_qdrant.search.return_value = [mock_result]
 
-        self.mock_vector_store.search.return_value = [mock_result]
+        # Create SimpleRAG with the correct signature
+        rag = SimpleRAG(self.mock_embeddings, self.mock_llm, mock_persistent_qdrant)
 
         mock_response = MagicMock()
         mock_response.content = "This is the answer."
-        self.mock_llm.invoke.return_value = mock_response
-
         rag.chain = MagicMock(invoke=MagicMock(return_value=mock_response))
 
-        results, response = rag.query("What is a test?", k=1)
+        # Mock vector store for query
+        mock_vector_store = MagicMock()
 
-        self.mock_vector_store.search.assert_called_once_with("What is a test?", k=1, verbose=False)
+        # Execute query with vector_store as first parameter
+        results, response = rag.query(mock_vector_store, "What is a test?", k=1)
+
+        mock_persistent_qdrant.search.assert_called_once_with(mock_vector_store, "What is a test?", k=1, verbose=False)
         self.assertEqual(len(results), 1)
         self.assertEqual(response, "This is the answer.")
 
